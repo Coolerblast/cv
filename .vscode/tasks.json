@@ -1,0 +1,36 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "build and run active file",
+            "options": {
+                "cwd": "${fileDirname}"
+            },
+            "command": "${fileDirname}\\${fileBasenameNoExtension}.exe",
+            "dependsOn": [
+                "build active file"
+            ],
+            "problemMatcher": [],
+            "group": "build"
+        },
+        {
+            "type": "shell",
+            "label": "build active file",
+            "command": "C:\\MinGW\\bin\\g++.exe",
+            "args": [
+                "-g",
+                "${file}",
+                "-o",
+                "${fileDirname}\\${fileBasenameNoExtension}.exe"
+            ],
+            "options": {
+                "cwd": "C:\\MinGW\\bin"
+            },
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        }
+    ]
+}
