@@ -25,6 +25,15 @@ string helpMessage =
     "-nonmax\t\t: output image after non max suppression has been applied\n"
     "-threshold\t: output image after values have been thresholded\n";
 
+struct Color {
+    unsigned char r, g, b;
+    Color (unsigned char r = 0, unsigned char g = 0, unsigned char b = 0) {
+        this->r = r;
+        this->g = g;
+        this->b = b;
+    }
+};
+
 void generateImage(vector<unsigned char>& pixMap, string filename) {
     ofstream imageFile;
     imageFile.open(filename);
@@ -316,6 +325,7 @@ bool detectEdges(const InputParser& input, vector<unsigned char>& image, string&
           input.getCmdOption("-o", {&outputFilename})))
         return false;
 
+    //!change this later to null by default!
     string inputFileDir = "keyboard.ppm";
     input.getInputFile(inputFileDir);
     if (!loadGrayScaleImage(image, inputFileDir)) return false;
