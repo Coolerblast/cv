@@ -27,14 +27,14 @@ string helpMessage =
 
 struct Color {
     unsigned char r, g, b;
-    Color (unsigned char r = 0, unsigned char g = 0, unsigned char b = 0) {
+    Color(unsigned char r = 0, unsigned char g = 0, unsigned char b = 0) {
         this->r = r;
         this->g = g;
         this->b = b;
     }
 };
 
-void generateImage(vector<unsigned char>& pixMap, string filename) {
+void generateImage(vector<Color>& pixMap, string filename) {
     ofstream imageFile;
     imageFile.open(filename);
 
@@ -42,15 +42,15 @@ void generateImage(vector<unsigned char>& pixMap, string filename) {
 
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++)
-            imageFile << (int)pixMap[y * WIDTH + x] << " " << (int)pixMap[y * WIDTH + x] << " "
-                      << (int)pixMap[y * WIDTH + x] << " ";
+            imageFile << (int)pixMap[y * WIDTH + x].r << " " << (int)pixMap[y * WIDTH + x].g << " "
+                      << (int)pixMap[y * WIDTH + x].b << " ";
         imageFile << endl;
     }
     imageFile.close();
 }
 
 // Usinzg unsigned char because it stores values from 0 to 255 and RGB values can only go to 255
-bool loadGrayScaleImage(vector<unsigned char>& image, const string& fileDir) {
+bool loadImage(vector<Color>& image, const string& fileDir) {
     if (fileDir.substr(fileDir.find_last_of(".") + 1) != "ppm") {
         cerr << "ERROR: " << fileDir << " is not a supported image type. Supported types: ppm"
              << endl;
@@ -66,23 +66,36 @@ bool loadGrayScaleImage(vector<unsigned char>& image, const string& fileDir) {
     if (imageType.compare("P3") == 0)
         while (i < image.size())
             if (imageFile >> r >> g >> b)
-                image[i++] = (unsigned char)((r + g + b) / 3);
+                image[i++] = Color(r, g, b);
             else
                 cerr << "ERROR: PPM image could not be read correctly.\n";
     else if (imageType.compare("P6") == 0) {
         unsigned char buffer[3];
         while (i < image.size())
             if (imageFile.read((char*)buffer, 3))
-                image[i++] = (unsigned char)((buffer[0] + buffer[1] + buffer[2]) / 3);
+                image[i++] = Color(buffer[0], buffer[1], buffer[2]);
             else
                 cerr << "ERROR: PPM image could not be read correctly.\n";
     }
     colorSize += 1;
     // This normalizes all the input PPMs, scaling it up to 8 bit color values
     if (colorSize != 256)
-        for (int i = 0; i < image.size(); i++) image[i] = (image[i] + 1) * (256 / colorSize) - 1;
+        for (int i = 0; i < image.size(); i++) {
+            image[i].r = (image[i].r + 1) * (256 / colorSize) - 1;
+            image[i].g = (image[i].g + 1) * (256 / colorSize) - 1;
+            image[i].b = (image[i].b + 1) * (256 / colorSize) - 1;
+        }
     imageFile.close();
     return true;
+}
+
+void grayScaleImage(vector<Color>& image) {
+    for (int i = 0; i < image.size(); i++) {
+        unsigned char gray = (unsigned char)((image[i].r + image[i].g + image[i].b) / 3);
+        image[i].r = gray;
+        image[i].g = gray;
+        image[i].b = gray;
+    }
 }
 
 vector<double> generateGaussianFilter(const int& n, const double& sigma) {
@@ -105,27 +118,33 @@ vector<double> generateGaussianFilter(const int& n, const double& sigma) {
     return filter;
 }
 
-void gaussianBlur(vector<unsigned char>& image, const int& n, const double& sigma) {
+void gaussianBlur(vector<Color>& image, const int& n, const double& sigma) {
     vector<double> filter = generateGaussianFilter(n, sigma);
-    vector<unsigned char> blur(image.size());
+    vector<Color> blur(image.size());
 
     int mid = n / 2;
     int min = mid - n + 1;
-    double sum, color;
+    double sum, rVal, gVal, bVal, filterVal;
+    Color color;
 
     for (int y = 0; y < HEIGHT; y++)
         for (int x = 0; x < WIDTH; x++) {
-            sum = 0;
-            color = 0;
+            sum = rVal = gVal = bVal = 0;
             for (int fy = min; fy <= mid; fy++)
                 for (int fx = min; fx <= mid; fx++)
                     if (y + fy >= 0 && y + fy < HEIGHT && x + fx >= 0 && fx < WIDTH) {
-                        sum += filter[(fy - min) * n + fx - min];
-                        color +=
-                            filter[(fy - min) * n + fx - min] * image[(y + fy) * WIDTH + x + fx];
+                        filterVal = filter[(fy - min) * n + fx - min];
+                        color = image[(y + fy) * WIDTH + x + fx];
+                        sum += filterVal;
+                        rVal += filterVal * color.r;
+                        gVal += filterVal * color.g;
+                        bVal += filterVal * color.b;
                     }
-            color /= sum;
-            blur[y * WIDTH + x] = (unsigned char)color;
+            rVal /= sum;
+            gVal /= sum;
+            bVal /= sum;
+            blur[y * WIDTH + x] =
+                Color((unsigned char)rVal, (unsigned char)gVal, (unsigned char)bVal);
         }
     image = blur;
 }
@@ -142,25 +161,33 @@ int sobelKernalY[] = {
     -1, -2, -1  //
 };
 
-vector<double> applySobelOperator(vector<unsigned char>& image, vector<double>& angles) {
-    vector<double> g(image.size());
-    short int gX, gY;
+vector<double> applySobelOperator(vector<Color>& image, vector<unsigned char>& out,
+                                  vector<double>& g, vector<double>& angles) {
+    short int sX, sY, gX, gY, gXr, gYr, gXg, gYg, gXb, gYb;
+    Color color;
     double gMax = 0;
     for (int y = 1; y < HEIGHT - 1; y++)
         for (int x = 1; x < WIDTH - 1; x++) {
-            gX = 0;
-            gY = 0;
+            gX = gY = gXr = gYr = gXg = gYg = gXb = gYb = 0;
             for (int fy = -1; fy <= 1; fy++)
                 for (int fx = -1; fx <= 1; fx++) {
-                    gX += sobelKernalX[(fy + 1) * 3 + (fx + 1)] * image[(y + fy) * WIDTH + x + fx];
-                    gY += sobelKernalY[(fy + 1) * 3 + (fx + 1)] * image[(y + fy) * WIDTH + x + fx];
+                    color = image[(y + fy) * WIDTH + x + fx];
+                    sX = sobelKernalX[(fy + 1) * 3 + (fx + 1)];
+                    sY = sobelKernalY[(fy + 1) * 3 + (fx + 1)];
+                    gXr += sX * color.r;
+                    gYr += sY * color.r;
+                    gXg += sX * color.g;
+                    gYg += sY * color.g;
+                    gXb += sX * color.b;
+                    gYb += sY * color.b;
                 }
+            gX = abs(gXr) > abs(gXg) ? gXr : abs(gXg) > abs(gXb) ? gXg : gXb;
+            gY = abs(gYr) > abs(gYg) ? gYr : abs(gYg) > abs(gYb) ? gYg : gYb;
             g[y * WIDTH + x] = sqrt(gX * gX + gY * gY);
             if (g[y * WIDTH + x] > gMax) gMax = g[y * WIDTH + x];
             angles[y * WIDTH + x] = atan2(gY, gX);
         }
-    for (int i = 0; i < image.size(); i++) image[i] = (unsigned char)((g[i] / gMax) * 255);
-    return g;
+    for (int i = 0; i < out.size(); i++) out[i] = (unsigned char)((g[i] / gMax) * 255);
 }
 
 void applyNonMaxSuppression(vector<unsigned char>& image, const vector<double>& angles) {
@@ -317,7 +344,7 @@ class InputParser {
     regex re;
 };
 
-bool detectEdges(const InputParser& input, vector<unsigned char>& image, string& outputFilename) {
+bool detectEdges(const InputParser& input, vector<Color>& image, string& outputFilename) {
     string stMinRatio, stMaxRatio, sgSize, sgSigma, stage;
 
     if (!(input.getCmdOption("-g", {&sgSize, &sgSigma}) &&
@@ -325,10 +352,10 @@ bool detectEdges(const InputParser& input, vector<unsigned char>& image, string&
           input.getCmdOption("-o", {&outputFilename})))
         return false;
 
-    //!change this later to null by default!
+    //! change this later to null by default!
     string inputFileDir = "keyboard.ppm";
     input.getInputFile(inputFileDir);
-    if (!loadGrayScaleImage(image, inputFileDir)) return false;
+    if (!loadImage(image, inputFileDir)) return false;
 
     if (input.cmdOptionExists("-grayscale")) return true;
 
@@ -342,24 +369,25 @@ bool detectEdges(const InputParser& input, vector<unsigned char>& image, string&
     gaussianBlur(image, gSize, gSigma);
     if (input.cmdOptionExists("-blur")) return true;
 
+    vector<unsigned char> imageGS(image.size());
+    vector<double> g(image.size());
     vector<double> angles(image.size());
-    vector<double> g = applySobelOperator(image, angles);
-    if (input.cmdOptionExists("-sobel")) return true;
+    applySobelOperator(image, imageGS, g, angles);
+    if (!input.cmdOptionExists("-sobel")) {
+        applyNonMaxSuppression(imageGS, angles);
+        if (!input.cmdOptionExists("-nonmax")) {
+            double tMinRatio, tMaxRatio;
+            if (!stMinRatio.empty() && !stMaxRatio.empty()) {
+                tMinRatio = stod(stMinRatio);
+                tMaxRatio = stod(stMaxRatio);
+            } else
+                calculateThresholdValues(g, tMinRatio, tMaxRatio);
 
-    applyNonMaxSuppression(image, angles);
-    if (input.cmdOptionExists("-nonmax")) return true;
-
-    double tMinRatio, tMaxRatio;
-    if (!stMinRatio.empty() && !stMaxRatio.empty()) {
-        tMinRatio = stod(stMinRatio);
-        tMaxRatio = stod(stMaxRatio);
-    } else
-        calculateThresholdValues(g, tMinRatio, tMaxRatio);
-
-    vector<int> strong = threshold(image, tMinRatio, tMaxRatio);
-    if (input.cmdOptionExists("-threshold")) return true;
-
-    defineEdges(image, strong, 255);
+            vector<int> strong = threshold(imageGS, tMinRatio, tMaxRatio);
+            if (!input.cmdOptionExists("-threshold")) defineEdges(imageGS, strong, 255);
+        }
+    }
+    for (int i = 0; i < image.size(); i++) image[i] = Color(imageGS[i], imageGS[i], imageGS[i]);
 
     return true;
 }
@@ -371,7 +399,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     string outputFilename = "output.ppm";
-    vector<unsigned char> image;
+    vector<Color> image;
     if (!detectEdges(input, image, outputFilename)) return -1;
     generateImage(image, outputFilename);
     return 0;

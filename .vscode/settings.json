@@ -10,6 +10,8 @@
         "cmath": "cpp",
         "iosfwd": "cpp",
         "initializer_list": "cpp",
-        "regex": "cpp"
+        "regex": "cpp",
+        "xutility": "cpp",
+        "algorithm": "cpp"
     }
 }
