@@ -18,6 +18,7 @@ string helpMessage =
     "-o dir\t\t: specify file output location\n"
     "-g int dbl\t: specify gradient size and sigma value [gradient sigma]\n"
     "-t dbl dbl\t: specify threshold min and max percentages [min max]\n"
+    "-h\t\t: displays this help message\n"
     "-grayscale\t: output grayscale image\n"
     "-blur\t\t: output image after gaussian blur has been applied\n"
     "-sobel\t\t: output image after sobel operator has been applied\n"
