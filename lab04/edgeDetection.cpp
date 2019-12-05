@@ -13,7 +13,8 @@ using namespace std;
 int WIDTH, HEIGHT;
 
 string helpMessage =
-    "Syntax:\n\tprogram.exe [input file] -arguments...\nOptions and arguments:\n"
+    "Syntax:\tprogram.exe [input file] -arguments...\n"
+    "Options and arguments:\n"
     "-o dir\t\t: specify file output location\n"
     "-g int dbl\t: specify gradient size and sigma value [gradient sigma]\n"
     "-t dbl dbl\t: specify threshold min and max percentages [min max]\n"
