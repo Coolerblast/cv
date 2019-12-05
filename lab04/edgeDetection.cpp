@@ -22,6 +22,7 @@ string helpMessage =
     "-grayscale\t: output grayscale image\n"
     "-blur\t\t: output image after gaussian blur has been applied\n"
     "-sobel\t\t: output image after sobel operator has been applied\n"
+    "-gradient\t\t: output image of the color gradient\n"
     "-nonmax\t\t: output image after non max suppression has been applied\n"
     "-threshold\t: output image after values have been thresholded\n";
 
@@ -33,6 +34,44 @@ struct Color {
         this->b = b;
     }
 };
+
+void HSVtoRGB(const double& h, const double& s, const double& v, Color& out) {
+    double angle = fmod(h * (180 / M_PI) + 360, 360);
+    double c = s * v;
+    double x = c * (1 - abs(fmod(angle / 60.0, 2) - 1));
+    double m = v - c;
+    double sR, sG, sB;
+
+    if (angle >= 0 && angle < 60) {
+        sR = c;
+        sG = x;
+        sB = 0;
+    } else if (angle >= 60 && angle < 120) {
+        sR = x;
+        sG = c;
+        sB = 0;
+    } else if (angle >= 120 && angle < 180) {
+        sR = 0;
+        sG = c;
+        sB = x;
+    } else if (angle >= 180 && angle < 240) {
+        sR = 0;
+        sG = x;
+        sB = c;
+    } else if (angle >= 240 && angle < 300) {
+        sR = c;
+        sG = 0;
+        sB = c;
+    } else {
+        sR = c;
+        sG = 0;
+        sB = x;
+    }
+
+    out.r = (sR + m) * 255;
+    out.g = (sG + m) * 255;
+    out.b = (sB + m) * 255;
+}
 
 void generateImage(vector<Color>& pixMap, string filename) {
     ofstream imageFile;
@@ -376,6 +415,10 @@ bool detectEdges(const InputParser& input, vector<Color>& image, string& outputF
     vector<double> g(image.size());
     vector<double> angles(image.size());
     applySobelOperator(image, imageGS, g, angles);
+    if (input.cmdOptionExists("-gradient")) {
+        for (int i = 0; i < image.size(); i++) HSVtoRGB(angles[i], 1.0, imageGS[i] / 255.0, image[i]);
+        return true;
+    }
     if (!input.cmdOptionExists("-sobel")) {
         applyNonMaxSuppression(imageGS, angles);
         if (!input.cmdOptionExists("-nonmax")) {
