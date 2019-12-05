@@ -357,7 +357,10 @@ bool detectEdges(const InputParser& input, vector<Color>& image, string& outputF
     input.getInputFile(inputFileDir);
     if (!loadImage(image, inputFileDir)) return false;
 
-    if (input.cmdOptionExists("-grayscale")) return true;
+    if (input.cmdOptionExists("-grayscale")) {
+        grayScaleImage(image);
+        return true;
+    }
 
     int gSize = 5;
     double gSigma = 1.0;
@@ -400,6 +403,7 @@ int main(int argc, char** argv) {
     }
     string outputFilename = "output.ppm";
     vector<Color> image;
+
     if (!detectEdges(input, image, outputFilename)) return -1;
     generateImage(image, outputFilename);
     return 0;
