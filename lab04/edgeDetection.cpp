@@ -4,6 +4,7 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -11,9 +12,9 @@ using namespace std;
 
 int WIDTH, HEIGHT;
 
-void generateImage(vector<unsigned char>& pixMap) {
+void generateImage(vector<unsigned char>& pixMap, string filename) {
     ofstream imageFile;
-    imageFile.open("image.ppm");
+    imageFile.open(filename);
 
     imageFile << "P3 " << WIDTH << " " << HEIGHT << " 255" << endl;
 
@@ -57,7 +58,7 @@ vector<unsigned char> loadGrayScaleImage(const char* fileDir) {
     return image;
 }
 
-vector<double> generateGaussianFilter(const int n, const double& sigma) {
+vector<double> generateGaussianFilter(const int& n, const double& sigma) {
     vector<double> filter(n * n);
     double d = 2 * sigma * sigma;
     int mid = n / 2;
@@ -77,7 +78,7 @@ vector<double> generateGaussianFilter(const int n, const double& sigma) {
     return filter;
 }
 
-void gaussianBlur(vector<unsigned char>& image, const int n, const double& sigma) {
+void gaussianBlur(vector<unsigned char>& image, const int& n, const double& sigma) {
     vector<double> filter = generateGaussianFilter(n, sigma);
     vector<unsigned char> blur(image.size());
 
@@ -114,7 +115,7 @@ int sobelKernalY[] = {
     -1, -2, -1  //
 };
 
-vector<double> detectEdges(vector<unsigned char>& image, vector<double>& angles) {
+vector<double> applySobelOperator(vector<unsigned char>& image, vector<double>& angles) {
     vector<double> g(image.size());
     short int gX, gY;
     double gMax = 0;
@@ -135,7 +136,7 @@ vector<double> detectEdges(vector<unsigned char>& image, vector<double>& angles)
     return g;
 }
 
-void highlightEdges(vector<unsigned char>& image, const vector<double>& angles) {
+void applyNonMaxSuppression(vector<unsigned char>& image, const vector<double>& angles) {
     vector<unsigned char> edges(image.size());
     vector<float> dir(angles.size());
     for (int i = 0; i < angles.size(); i++) {
@@ -155,7 +156,7 @@ void highlightEdges(vector<unsigned char>& image, const vector<double>& angles) 
                     int bc = i + WIDTH;  // bottom-center
                     int bl = bc - 1;     // bottom-left
                     int br = bc + 1;     // bottom-right
-                    
+
                     if (((dir[i] <= 1 || dir[i] > 7) && image[i] > image[cr] &&
                          image[i] > image[cl]) ||  // 0 deg
                         ((dir[i] <= 3 && dir[i] > 1) && image[i] > image[tr] &&
@@ -172,7 +173,7 @@ void highlightEdges(vector<unsigned char>& image, const vector<double>& angles) 
     image = edges;
 }
 
-void calculateThresholdValues(vector<double> g, double& tMinRatio, double& tMaxRatio) {
+void calculateThresholdValues(vector<double>& g, double& tMinRatio, double& tMaxRatio) {
     double sum = 0;
     for (double d : g) sum += d;
     double avg = sum / g.size();
@@ -211,7 +212,7 @@ vector<int> threshold(vector<unsigned char>& image, const double& tMinRatio,
     return strong;
 }
 
-void defineEdges(vector<unsigned char>& image, vector<int> strong, int max) {
+void defineEdges(vector<unsigned char>& image, vector<int> strong, const int& max) {
     vector<unsigned char> edges(image.size());
     int i;
     vector<int> nedges;
@@ -244,26 +245,96 @@ void defineEdges(vector<unsigned char>& image, vector<int> strong, int max) {
     image = edges;
 }
 
-int main(int argc, char** argv) {
-    vector<unsigned char> image;
-    if (argc > 1)
+class InputParser {
+   public:
+    InputParser(const int& argc, char** argv) {
+        for (int i = 1; i < argc; ++i) this->tokens.push_back(string(argv[i]));
+        this->re = regex("-\\w+");
+    }
+
+    bool getCmdOption(const string& option, initializer_list<string*> out) const {
+        vector<string>::const_iterator itr =
+            find(this->tokens.begin(), this->tokens.end(), option);
+        if (itr != this->tokens.end())
+            if (++itr != this->tokens.end())
+                for (auto o = out.begin(); o != out.end(); ++o) {
+                    if (itr != this->tokens.end() && !regex_match(*itr, this->re))
+                        **o = *(itr++);
+                    else {
+                        cerr << "ERROR: Too few arguments for the option \"" << option << '\"'
+                             << endl;
+                        return false;
+                    }
+                }
+            else {
+                cerr << "ERROR: Too few arguments for the option \"" << option << '\"' << endl;
+                return false;
+            }
+        return true;
+    }
+
+    bool cmdOptionExists(const string& option) const {
+        return find(this->tokens.begin(), this->tokens.end(), option) != this->tokens.end();
+    }
+
+   private:
+    vector<string> tokens;
+    regex re;
+};
+
+bool detectEdges(const int& argc, char** argv, vector<unsigned char>& image,
+                 string& outputFilename) {
+    InputParser input(argc, argv);
+    string stMinRatio, stMaxRatio, sgSize, sgSigma, stage;
+
+    if (!(input.getCmdOption("-g", {&sgSize, &sgSigma}) &&
+          input.getCmdOption("-t", {&stMinRatio, &stMaxRatio}) &&
+          input.getCmdOption("-o", {&outputFilename})))
+        return false;
+
+    if (argc > 1 && regex_match(argv[1], regex("-\\w+")))
         image = loadGrayScaleImage(argv[1]);
     else
         image = loadGrayScaleImage("keyboard.ppm");
-    gaussianBlur(image, 5, 1.0);
+
+    int gSize = 5;
+    double gSigma = 1.0;
+    if (!sgSize.empty() && !sgSigma.empty()) {
+        gSize = stoi(sgSize);
+        gSigma = stod(sgSigma);
+    }
+
+    gaussianBlur(image, gSize, gSigma);
+
     vector<double> angles(image.size());
-    vector<double> g = detectEdges(image, angles);
-    highlightEdges(image, angles);
+    vector<double> g = applySobelOperator(image, angles);
+
+    if (input.cmdOptionExists("-sobel")) return true;
+
+    applyNonMaxSuppression(image, angles);
+
+    if (input.cmdOptionExists("-nonmax")) return true;
 
     double tMinRatio, tMaxRatio;
-    if (argc == 4) {
-        tMinRatio = atof(argv[2]);
-        tMaxRatio = atof(argv[3]);
+    if (!stMinRatio.empty() && !stMaxRatio.empty()) {
+        tMinRatio = stod(stMinRatio);
+        tMaxRatio = stod(stMaxRatio);
     } else
         calculateThresholdValues(g, tMinRatio, tMaxRatio);
 
     vector<int> strong = threshold(image, tMinRatio, tMaxRatio);
+
+    if (input.cmdOptionExists("-threshold")) return true;
+
     defineEdges(image, strong, 255);
-    generateImage(image);
+
+    return true;
+}
+
+int main(int argc, char** argv) {
+    string outputFilename = "output.ppm";
+    vector<unsigned char> image;
+    if (!detectEdges(argc, argv, image, outputFilename)) return -1;
+    generateImage(image, outputFilename);
     return 0;
 }

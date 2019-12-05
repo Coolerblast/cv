@@ -8,6 +8,7 @@
         "xiosbase": "cpp",
         "xstring": "cpp",
         "cmath": "cpp",
-        "iosfwd": "cpp"
+        "iosfwd": "cpp",
+        "initializer_list": "cpp"
     }
 }
