@@ -12,6 +12,17 @@ using namespace std;
 
 int WIDTH, HEIGHT;
 
+string helpMessage =
+    "Syntax:\n\tprogram.exe [input file] -arguments...\nOptions and arguments:\n"
+    "-o dir\t\t: specify file output location\n"
+    "-g int dbl\t: specify gradient size and sigma value [gradient sigma]\n"
+    "-t dbl dbl\t: specify threshold min and max percentages [min max]\n"
+    "-grayscale\t: output grayscale image\n"
+    "-blur\t\t: output image after gaussian blur has been applied\n"
+    "-sobel\t\t: output image after sobel operator has been applied\n"
+    "-nonmax\t\t: output image after non max suppression has been applied\n"
+    "-threshold\t: output image after values have been thresholded\n";
+
 void generateImage(vector<unsigned char>& pixMap, string filename) {
     ofstream imageFile;
     imageFile.open(filename);
@@ -28,7 +39,7 @@ void generateImage(vector<unsigned char>& pixMap, string filename) {
 }
 
 // Usinzg unsigned char because it stores values from 0 to 255 and RGB values can only go to 255
-vector<unsigned char> loadGrayScaleImage(const char* fileDir) {
+vector<unsigned char> loadGrayScaleImage(string fileDir) {
     ifstream imageFile(fileDir, ios::in | ios::binary);
     string imageType;
     short int colorSize;
@@ -277,14 +288,20 @@ class InputParser {
         return find(this->tokens.begin(), this->tokens.end(), option) != this->tokens.end();
     }
 
+    bool getInputFile(string& inputFileDir) const {
+        if (!regex_match(tokens[0], re)) {
+            inputFileDir = tokens[0];
+            return true;
+        }
+        return false;
+    }
+
    private:
     vector<string> tokens;
     regex re;
 };
 
-bool detectEdges(const int& argc, char** argv, vector<unsigned char>& image,
-                 string& outputFilename) {
-    InputParser input(argc, argv);
+bool detectEdges(const InputParser& input, vector<unsigned char>& image, string& outputFilename) {
     string stMinRatio, stMaxRatio, sgSize, sgSigma, stage;
 
     if (!(input.getCmdOption("-g", {&sgSize, &sgSigma}) &&
@@ -292,10 +309,10 @@ bool detectEdges(const int& argc, char** argv, vector<unsigned char>& image,
           input.getCmdOption("-o", {&outputFilename})))
         return false;
 
-    if (argc > 1 && regex_match(argv[1], regex("-\\w+")))
-        image = loadGrayScaleImage(argv[1]);
-    else
-        image = loadGrayScaleImage("keyboard.ppm");
+    string inputFileDir = "keyboard.ppm";
+    input.getInputFile(inputFileDir);
+    image = loadGrayScaleImage(inputFileDir);
+    if (input.cmdOptionExists("-grayscale")) return true;
 
     int gSize = 5;
     double gSigma = 1.0;
@@ -305,14 +322,13 @@ bool detectEdges(const int& argc, char** argv, vector<unsigned char>& image,
     }
 
     gaussianBlur(image, gSize, gSigma);
+    if (input.cmdOptionExists("-blur")) return true;
 
     vector<double> angles(image.size());
     vector<double> g = applySobelOperator(image, angles);
-
     if (input.cmdOptionExists("-sobel")) return true;
 
     applyNonMaxSuppression(image, angles);
-
     if (input.cmdOptionExists("-nonmax")) return true;
 
     double tMinRatio, tMaxRatio;
@@ -323,7 +339,6 @@ bool detectEdges(const int& argc, char** argv, vector<unsigned char>& image,
         calculateThresholdValues(g, tMinRatio, tMaxRatio);
 
     vector<int> strong = threshold(image, tMinRatio, tMaxRatio);
-
     if (input.cmdOptionExists("-threshold")) return true;
 
     defineEdges(image, strong, 255);
@@ -332,9 +347,14 @@ bool detectEdges(const int& argc, char** argv, vector<unsigned char>& image,
 }
 
 int main(int argc, char** argv) {
+    InputParser input(argc, argv);
+    if (input.cmdOptionExists("-h")) {
+        cout << helpMessage << endl;
+        return 0;
+    }
     string outputFilename = "output.ppm";
     vector<unsigned char> image;
-    if (!detectEdges(argc, argv, image, outputFilename)) return -1;
+    if (!detectEdges(input, image, outputFilename)) return -1;
     generateImage(image, outputFilename);
     return 0;
 }
