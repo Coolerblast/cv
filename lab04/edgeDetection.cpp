@@ -237,7 +237,7 @@ void calculateThresholdValues(vector<double>& g, double& tMinRatio, double& tMax
     double sd = sqrt(var);
     tMinRatio = (sd) / 255;
     // tMaxRatio = (255 - sd * 2) / 255;
-    tMaxRatio = (avg + sd / 2) / 255;
+    tMaxRatio = (avg) / 255;
     cout << "Average: " << avg << endl
          << "Variance: " << var << endl
          << "Standard Deviation: " << sd << endl
