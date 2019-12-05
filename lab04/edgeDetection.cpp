@@ -22,7 +22,7 @@ string helpMessage =
     "-grayscale\t: output grayscale image\n"
     "-blur\t\t: output image after gaussian blur has been applied\n"
     "-sobel\t\t: output image after sobel operator has been applied\n"
-    "-gradient\t\t: output image of the color gradient\n"
+    "-gradient\t: output image of the color gradient\n"
     "-nonmax\t\t: output image after non max suppression has been applied\n"
     "-threshold\t: output image after values have been thresholded\n";
 
