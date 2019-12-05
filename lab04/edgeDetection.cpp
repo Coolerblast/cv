@@ -41,12 +41,17 @@ void generateImage(vector<unsigned char>& pixMap, string filename) {
 }
 
 // Usinzg unsigned char because it stores values from 0 to 255 and RGB values can only go to 255
-vector<unsigned char> loadGrayScaleImage(string fileDir) {
+bool loadGrayScaleImage(vector<unsigned char>& image, const string& fileDir) {
+    if (fileDir.substr(fileDir.find_last_of(".") + 1) != "ppm") {
+        cerr << "ERROR: " << fileDir << " is not a supported image type. Supported types: ppm"
+             << endl;
+        return false;
+    }
     ifstream imageFile(fileDir, ios::in | ios::binary);
     string imageType;
     short int colorSize;
     imageFile >> imageType >> WIDTH >> HEIGHT >> colorSize;
-    vector<unsigned char> image(WIDTH * HEIGHT);
+    image.resize(WIDTH * HEIGHT);
     unsigned char r, g, b;
     int i = 0;
     if (imageType.compare("P3") == 0)
@@ -68,7 +73,7 @@ vector<unsigned char> loadGrayScaleImage(string fileDir) {
     if (colorSize != 256)
         for (int i = 0; i < image.size(); i++) image[i] = (image[i] + 1) * (256 / colorSize) - 1;
     imageFile.close();
-    return image;
+    return true;
 }
 
 vector<double> generateGaussianFilter(const int& n, const double& sigma) {
@@ -313,7 +318,8 @@ bool detectEdges(const InputParser& input, vector<unsigned char>& image, string&
 
     string inputFileDir = "keyboard.ppm";
     input.getInputFile(inputFileDir);
-    image = loadGrayScaleImage(inputFileDir);
+    if (!loadGrayScaleImage(image, inputFileDir)) return false;
+
     if (input.cmdOptionExists("-grayscale")) return true;
 
     int gSize = 5;
