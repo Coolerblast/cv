@@ -445,7 +445,7 @@ bool detectEdges(const InputParser& input) {
     applySobelOperator(channels, gray, grad, angles);
 
     string gradientType;
-    if (input.getCmdOption("-gradient", {&gradientType})) {
+    if (input.cmdOptionExists("-gradient") && input.getCmdOption("-gradient", {&gradientType})) {
         vector<vector<unsigned char>*> RGB;
         RGB.emplace_back(&r);
         RGB.emplace_back(&g);
