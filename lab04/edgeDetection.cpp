@@ -22,47 +22,37 @@ string helpMessage =
     "-h\t\t: displays this help message\n"
     "-blur\t\t: output image after gaussian blur has been applied\n"
     "-sobel\t\t: output image after sobel operator has been applied\n"
-    "-gradient\t: output image of the color gradient\n"
+    "-gradient mdl\t: output image of the color gradient using a specified color model [hsl|hsv] | default is hsv\n"
     "-nonmax\t\t: output image after non max suppression has been applied\n"
     "-threshold\t: output image after values have been thresholded\n";
 
 void HSVtoRGB(const double& h, const double& s, const double& v, unsigned char& r,
               unsigned char& g, unsigned char& b) {
     double angle = fmod(h * (180 / M_PI) + 360, 360);
-    double c = s * v;
-    double x = c * (1 - abs(fmod(angle / 60.0, 2) - 1));
-    double m = v - c;
-    double sR, sG, sB;
 
-    if (angle >= 0 && angle < 60) {
-        sR = c;
-        sG = x;
-        sB = 0;
-    } else if (angle >= 60 && angle < 120) {
-        sR = x;
-        sG = c;
-        sB = 0;
-    } else if (angle >= 120 && angle < 180) {
-        sR = 0;
-        sG = c;
-        sB = x;
-    } else if (angle >= 180 && angle < 240) {
-        sR = 0;
-        sG = x;
-        sB = c;
-    } else if (angle >= 240 && angle < 300) {
-        sR = c;
-        sG = 0;
-        sB = c;
-    } else {
-        sR = c;
-        sG = 0;
-        sB = x;
-    }
+    auto f = [](int n, const double& h, const double& s, const double& v) {
+        double k = fmod(n + h / 60.0, 6);
+        return v - v * s * max(min(k, min(4 - k, 1.0)), 0.0);
+    };
 
-    r = (sR + m) * 255;
-    g = (sG + m) * 255;
-    b = (sB + m) * 255;
+    r = f(5, angle, s, v) * 255;
+    g = f(3, angle, s, v) * 255;
+    b = f(1, angle, s, v) * 255;
+}
+
+void HSLtoRGB(const double& h, const double& s, const double& l, unsigned char& r,
+              unsigned char& g, unsigned char& b) {
+    double angle = fmod(h * (180 / M_PI) + 360, 360);
+
+    auto f = [](int n, const double& h, const double& s, const double& l) {
+        double k = fmod(n + h / 30.0, 12);
+        double a = s * min(l, 1 - l);
+        return l - a * max(min(k - 3, min(9 - k, 1.0)), -1.0);
+    };
+
+    r = f(0, angle, s, l) * 255;
+    g = f(8, angle, s, l) * 255;
+    b = f(4, angle, s, l) * 255;
 }
 
 bool generateGrayscaleImage(vector<unsigned char>& pixMap, string filename) {
@@ -453,13 +443,19 @@ bool detectEdges(const InputParser& input) {
     vector<double> grad(r.size());
     vector<double> angles(r.size());
     applySobelOperator(channels, gray, grad, angles);
-    if (input.cmdOptionExists("-gradient")) {
+
+    string gradientType;
+    if (input.getCmdOption("-gradient", {&gradientType})) {
         vector<vector<unsigned char>*> RGB;
         RGB.emplace_back(&r);
         RGB.emplace_back(&g);
         RGB.emplace_back(&b);
-        for (int i = 0; i < r.size(); i++)
-            HSVtoRGB(angles[i], 1.0, gray[i] / 255.0, r[i], g[i], b[i]);
+        if (gradientType.compare("hsv") == 0 || gradientType.empty())
+            for (int i = 0; i < r.size(); i++)
+                HSVtoRGB(angles[i], 1.0, gray[i] / 255.0, r[i], g[i], b[i]);
+        else if (gradientType.compare("hsl") == 0)
+            for (int i = 0; i < r.size(); i++)
+                HSLtoRGB(angles[i], 1.0, gray[i] / 255.0, r[i], g[i], b[i]);
         return generateImage(RGB, outputFileDir, "rgb");
     }
     if (input.cmdOptionExists("-sobel")) return generateGrayscaleImage(gray, outputFileDir);
