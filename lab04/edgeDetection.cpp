@@ -18,24 +18,16 @@ string helpMessage =
     "-o dir\t\t: specify file output location\n"
     "-g int dbl\t: specify gradient size and sigma value [gradient sigma]\n"
     "-t dbl dbl\t: specify threshold min and max percentages [min max]\n"
+    "-c r|g|b\t: specify which color channel(s) to use algorithm on | default is grayscale"
     "-h\t\t: displays this help message\n"
-    "-grayscale\t: output grayscale image\n"
     "-blur\t\t: output image after gaussian blur has been applied\n"
     "-sobel\t\t: output image after sobel operator has been applied\n"
     "-gradient\t: output image of the color gradient\n"
     "-nonmax\t\t: output image after non max suppression has been applied\n"
     "-threshold\t: output image after values have been thresholded\n";
 
-struct Color {
-    unsigned char r, g, b;
-    Color(unsigned char r = 0, unsigned char g = 0, unsigned char b = 0) {
-        this->r = r;
-        this->g = g;
-        this->b = b;
-    }
-};
-
-void HSVtoRGB(const double& h, const double& s, const double& v, Color& out) {
+void HSVtoRGB(const double& h, const double& s, const double& v, unsigned char& r,
+              unsigned char& g, unsigned char& b) {
     double angle = fmod(h * (180 / M_PI) + 360, 360);
     double c = s * v;
     double x = c * (1 - abs(fmod(angle / 60.0, 2) - 1));
@@ -68,28 +60,59 @@ void HSVtoRGB(const double& h, const double& s, const double& v, Color& out) {
         sB = x;
     }
 
-    out.r = (sR + m) * 255;
-    out.g = (sG + m) * 255;
-    out.b = (sB + m) * 255;
+    r = (sR + m) * 255;
+    g = (sG + m) * 255;
+    b = (sB + m) * 255;
 }
 
-void generateImage(vector<Color>& pixMap, string filename) {
+bool generateGrayscaleImage(vector<unsigned char>& pixMap, string filename) {
     ofstream imageFile;
     imageFile.open(filename);
+    if (!imageFile) return false;
 
     imageFile << "P3 " << WIDTH << " " << HEIGHT << " 255" << endl;
 
+    unsigned char g;
     for (int y = 0; y < HEIGHT; y++) {
-        for (int x = 0; x < WIDTH; x++)
-            imageFile << (int)pixMap[y * WIDTH + x].r << " " << (int)pixMap[y * WIDTH + x].g << " "
-                      << (int)pixMap[y * WIDTH + x].b << " ";
+        for (int x = 0; x < WIDTH; x++) {
+            g = pixMap[y * WIDTH + x];
+            imageFile << (int)g << " " << (int)g << " " << (int)g << " ";
+        }
         imageFile << endl;
     }
     imageFile.close();
+    return true;
+}
+
+bool generateImage(vector<vector<unsigned char>*>& pixMap, string filename, string options) {
+    ofstream imageFile;
+    imageFile.open(filename);
+    if (!imageFile) return false;
+
+    imageFile << "P3 " << WIDTH << " " << HEIGHT << " 255" << endl;
+
+    bool r = options.find("r") != string::npos;
+    bool g = options.find("g") != string::npos;
+    bool b = options.find("b") != string::npos;
+
+    short int i;
+
+    for (int y = 0; y < HEIGHT; y++) {
+        for (int x = 0; x < WIDTH; x++) {
+            i = 0;
+            imageFile << (r ? (int)(*pixMap[i++])[y * WIDTH + x] : 0) << " "
+                      << (g ? (int)(*pixMap[i++])[y * WIDTH + x] : 0) << " "
+                      << (b ? (int)(*pixMap[i++])[y * WIDTH + x] : 0) << " ";
+        }
+        imageFile << endl;
+    }
+    imageFile.close();
+    return true;
 }
 
 // Usinzg unsigned char because it stores values from 0 to 255 and RGB values can only go to 255
-bool loadImage(vector<Color>& image, const string& fileDir) {
+bool loadImage(vector<unsigned char>& r, vector<unsigned char>& g, vector<unsigned char>& b,
+               const string& fileDir) {
     if (fileDir.substr(fileDir.find_last_of(".") + 1) != "ppm") {
         cerr << "ERROR: " << fileDir << " is not a supported image type. Supported types: ppm"
              << endl;
@@ -99,41 +122,41 @@ bool loadImage(vector<Color>& image, const string& fileDir) {
     string imageType;
     short int colorSize;
     imageFile >> imageType >> WIDTH >> HEIGHT >> colorSize;
-    image.resize(WIDTH * HEIGHT);
-    unsigned char r, g, b;
+    r.resize(WIDTH * HEIGHT);
+    g.resize(WIDTH * HEIGHT);
+    b.resize(WIDTH * HEIGHT);
     int i = 0;
-    if (imageType.compare("P3") == 0)
-        while (i < image.size())
-            if (imageFile >> r >> g >> b)
-                image[i++] = Color(r, g, b);
-            else
+    if (imageType.compare("P3") == 0) {
+        while (i < r.size())
+            if (!(imageFile >> r[i] >> g[i] >> b[i++]))
                 cerr << "ERROR: PPM image could not be read correctly.\n";
-    else if (imageType.compare("P6") == 0) {
+    } else if (imageType.compare("P6") == 0) {
         unsigned char buffer[3];
-        while (i < image.size())
-            if (imageFile.read((char*)buffer, 3))
-                image[i++] = Color(buffer[0], buffer[1], buffer[2]);
-            else
+        while (i < r.size())
+            if (imageFile.read((char*)buffer, 3)) {
+                r[i] = buffer[0];
+                g[i] = buffer[1];
+                b[i++] = buffer[2];
+            } else
                 cerr << "ERROR: PPM image could not be read correctly.\n";
     }
     colorSize += 1;
     // This normalizes all the input PPMs, scaling it up to 8 bit color values
     if (colorSize != 256)
-        for (int i = 0; i < image.size(); i++) {
-            image[i].r = (image[i].r + 1) * (256 / colorSize) - 1;
-            image[i].g = (image[i].g + 1) * (256 / colorSize) - 1;
-            image[i].b = (image[i].b + 1) * (256 / colorSize) - 1;
+        for (int i = 0; i < r.size(); i++) {
+            r[i] = (r[i] + 1) * (256 / colorSize) - 1;
+            g[i] = (g[i] + 1) * (256 / colorSize) - 1;
+            b[i] = (b[i] + 1) * (256 / colorSize) - 1;
         }
     imageFile.close();
     return true;
 }
 
-void grayScaleImage(vector<Color>& image) {
-    for (int i = 0; i < image.size(); i++) {
-        unsigned char gray = (unsigned char)((image[i].r + image[i].g + image[i].b) / 3);
-        image[i].r = gray;
-        image[i].g = gray;
-        image[i].b = gray;
+void grayScaleImage(vector<unsigned char>& gray, const vector<unsigned char>& r,
+                    const vector<unsigned char>& g, const vector<unsigned char>& b) {
+    for (int i = 0; i < r.size(); i++) {
+        unsigned char a = (unsigned char)((r[i] + g[i] + b[i]) / 3);
+        gray[i] = a;
     }
 }
 
@@ -157,35 +180,36 @@ vector<double> generateGaussianFilter(const int& n, const double& sigma) {
     return filter;
 }
 
-void gaussianBlur(vector<Color>& image, const int& n, const double& sigma) {
+void gaussianBlur(vector<vector<unsigned char>*>& channels, const int& n, const double& sigma) {
     vector<double> filter = generateGaussianFilter(n, sigma);
-    vector<Color> blur(image.size());
-
+    vector<vector<unsigned char>> blur(channels.size());
     int mid = n / 2;
     int min = mid - n + 1;
-    double sum, rVal, gVal, bVal, filterVal;
-    Color color;
+    double sum, filterVal;
+    vector<double> val(channels.size());
+    int index;
 
     for (int y = 0; y < HEIGHT; y++)
         for (int x = 0; x < WIDTH; x++) {
-            sum = rVal = gVal = bVal = 0;
+            sum = 0;
+            for_each(val.begin(), val.end(), [](double& d) { d = 0; });
+
             for (int fy = min; fy <= mid; fy++)
                 for (int fx = min; fx <= mid; fx++)
                     if (y + fy >= 0 && y + fy < HEIGHT && x + fx >= 0 && fx < WIDTH) {
                         filterVal = filter[(fy - min) * n + fx - min];
-                        color = image[(y + fy) * WIDTH + x + fx];
+                        index = (y + fy) * WIDTH + x + fx;
                         sum += filterVal;
-                        rVal += filterVal * color.r;
-                        gVal += filterVal * color.g;
-                        bVal += filterVal * color.b;
+                        for (int i = 0; i < val.size(); i++)
+                            val[i] = filterVal * (*channels[i])[index];
                     }
-            rVal /= sum;
-            gVal /= sum;
-            bVal /= sum;
-            blur[y * WIDTH + x] =
-                Color((unsigned char)rVal, (unsigned char)gVal, (unsigned char)bVal);
+            for (int i = 0; i < val.size(); i++) {
+                val[i] /= sum;
+                blur[i].emplace_back(val[i]);
+            }
         }
-    image = blur;
+    for (int i = 0; i < channels[0]->size(); i++)
+        for (int j = 0; i < channels.size(); i++) (*channels[j])[i] = blur[j][i];
 }
 
 int sobelKernalX[] = {
@@ -200,33 +224,36 @@ int sobelKernalY[] = {
     -1, -2, -1  //
 };
 
-vector<double> applySobelOperator(vector<Color>& image, vector<unsigned char>& out,
-                                  vector<double>& g, vector<double>& angles) {
-    short int sX, sY, gX, gY, gXr, gYr, gXg, gYg, gXb, gYb;
-    Color color;
+vector<double> applySobelOperator(const vector<vector<unsigned char>*>& channels,
+                                  vector<unsigned char>& out, vector<double>& grad,
+                                  vector<double>& angles) {
+    short int sX, sY, gX, gY;
+    vector<short int> gXc(channels.size()), gYc(channels.size());
+    int index;
     double gMax = 0;
     for (int y = 1; y < HEIGHT - 1; y++)
         for (int x = 1; x < WIDTH - 1; x++) {
-            gX = gY = gXr = gYr = gXg = gYg = gXb = gYb = 0;
+            gX = gY = 0;
+            for (int i = 0; i < channels.size(); i++) gXc[i] = gYc[i] = 0;
             for (int fy = -1; fy <= 1; fy++)
                 for (int fx = -1; fx <= 1; fx++) {
-                    color = image[(y + fy) * WIDTH + x + fx];
+                    index = (y + fy) * WIDTH + x + fx;
                     sX = sobelKernalX[(fy + 1) * 3 + (fx + 1)];
                     sY = sobelKernalY[(fy + 1) * 3 + (fx + 1)];
-                    gXr += sX * color.r;
-                    gYr += sY * color.r;
-                    gXg += sX * color.g;
-                    gYg += sY * color.g;
-                    gXb += sX * color.b;
-                    gYb += sY * color.b;
+                    for (int i = 0; i < channels.size(); i++) {
+                        gXc[i] += sX * (*channels[i])[index];
+                        gYc[i] += sY * (*channels[i])[index];
+                    }
                 }
-            gX = abs(gXr) > abs(gXg) ? gXr : abs(gXg) > abs(gXb) ? gXg : gXb;
-            gY = abs(gYr) > abs(gYg) ? gYr : abs(gYg) > abs(gYb) ? gYg : gYb;
-            g[y * WIDTH + x] = sqrt(gX * gX + gY * gY);
-            if (g[y * WIDTH + x] > gMax) gMax = g[y * WIDTH + x];
+            for (int i = 0; i < channels.size(); i++) {
+                if (abs(gXc[i]) > abs(gX)) gX = gXc[i];
+                if (abs(gYc[i]) > abs(gY)) gY = gYc[i];
+            }
+            grad[y * WIDTH + x] = sqrt(gX * gX + gY * gY);
+            if (grad[y * WIDTH + x] > gMax) gMax = grad[y * WIDTH + x];
             angles[y * WIDTH + x] = atan2(gY, gX);
         }
-    for (int i = 0; i < out.size(); i++) out[i] = (unsigned char)((g[i] / gMax) * 255);
+    for (int i = 0; i < out.size(); i++) out[i] = (unsigned char)((grad[i] / gMax) * 255);
 }
 
 void applyNonMaxSuppression(vector<unsigned char>& image, const vector<double>& angles) {
@@ -266,13 +293,13 @@ void applyNonMaxSuppression(vector<unsigned char>& image, const vector<double>& 
     image = edges;
 }
 
-void calculateThresholdValues(vector<double>& g, double& tMinRatio, double& tMaxRatio) {
+void calculateThresholdValues(vector<double>& grad, double& tMinRatio, double& tMaxRatio) {
     double sum = 0;
-    for (double d : g) sum += d;
-    double avg = sum / g.size();
+    for (double d : grad) sum += d;
+    double avg = sum / grad.size();
     double var = 0;
-    for (double d : g) var += (d - avg) * (d - avg);
-    var /= g.size();
+    for (double d : grad) var += (d - avg) * (d - avg);
+    var /= grad.size();
     double sd = sqrt(var);
     tMinRatio = (sd) / 255;
     // tMaxRatio = (255 - sd * 2) / 255;
@@ -383,22 +410,34 @@ class InputParser {
     regex re;
 };
 
-bool detectEdges(const InputParser& input, vector<Color>& image, string& outputFilename) {
+bool detectEdges(const InputParser& input) {
     string stMinRatio, stMaxRatio, sgSize, sgSigma, stage;
 
-    if (!(input.getCmdOption("-g", {&sgSize, &sgSigma}) &&
-          input.getCmdOption("-t", {&stMinRatio, &stMaxRatio}) &&
-          input.getCmdOption("-o", {&outputFilename})))
-        return false;
-
+    string outputFileDir = "output.ppm";
     //! change this later to null by default!
     string inputFileDir = "keyboard.ppm";
-    input.getInputFile(inputFileDir);
-    if (!loadImage(image, inputFileDir)) return false;
 
-    if (input.cmdOptionExists("-grayscale")) {
-        grayScaleImage(image);
-        return true;
+    string channelOptions;
+    if (!(input.getCmdOption("-g", {&sgSize, &sgSigma}) &&
+          input.getCmdOption("-t", {&stMinRatio, &stMaxRatio}) &&
+          input.getCmdOption("-o", {&outputFileDir}) &&
+          input.getCmdOption("-c", {&channelOptions})))
+        return false;
+
+    vector<unsigned char> r, g, b;
+
+    input.getInputFile(inputFileDir);
+    if (!loadImage(r, g, b, inputFileDir)) return false;
+    vector<unsigned char> gray(r.size());
+
+    vector<vector<unsigned char>*> channels;
+    if (channelOptions.empty()) {
+        grayScaleImage(gray, r, g, b);
+        channels.emplace_back(&gray);
+    } else {
+        if (channelOptions.find("r") != string::npos) channels.emplace_back(&r);
+        if (channelOptions.find("g") != string::npos) channels.emplace_back(&g);
+        if (channelOptions.find("b") != string::npos) channels.emplace_back(&b);
     }
 
     int gSize = 5;
@@ -408,34 +447,35 @@ bool detectEdges(const InputParser& input, vector<Color>& image, string& outputF
         gSigma = stod(sgSigma);
     }
 
-    gaussianBlur(image, gSize, gSigma);
-    if (input.cmdOptionExists("-blur")) return true;
-
-    vector<unsigned char> imageGS(image.size());
-    vector<double> g(image.size());
-    vector<double> angles(image.size());
-    applySobelOperator(image, imageGS, g, angles);
+    gaussianBlur(channels, gSize, gSigma);
+    if (input.cmdOptionExists("-blur"))
+        return generateImage(channels, outputFileDir, channelOptions);
+    vector<double> grad(r.size());
+    vector<double> angles(r.size());
+    applySobelOperator(channels, gray, grad, angles);
     if (input.cmdOptionExists("-gradient")) {
-        for (int i = 0; i < image.size(); i++) HSVtoRGB(angles[i], 1.0, imageGS[i] / 255.0, image[i]);
-        return true;
+        vector<vector<unsigned char>*> RGB;
+        RGB.emplace_back(&r);
+        RGB.emplace_back(&g);
+        RGB.emplace_back(&b);
+        for (int i = 0; i < r.size(); i++)
+            HSVtoRGB(angles[i], 1.0, gray[i] / 255.0, r[i], g[i], b[i]);
+        return generateImage(RGB, outputFileDir, "rgb");
     }
-    if (!input.cmdOptionExists("-sobel")) {
-        applyNonMaxSuppression(imageGS, angles);
-        if (!input.cmdOptionExists("-nonmax")) {
-            double tMinRatio, tMaxRatio;
-            if (!stMinRatio.empty() && !stMaxRatio.empty()) {
-                tMinRatio = stod(stMinRatio);
-                tMaxRatio = stod(stMaxRatio);
-            } else
-                calculateThresholdValues(g, tMinRatio, tMaxRatio);
+    if (input.cmdOptionExists("-sobel")) return generateGrayscaleImage(gray, outputFileDir);
 
-            vector<int> strong = threshold(imageGS, tMinRatio, tMaxRatio);
-            if (!input.cmdOptionExists("-threshold")) defineEdges(imageGS, strong, 255);
-        }
-    }
-    for (int i = 0; i < image.size(); i++) image[i] = Color(imageGS[i], imageGS[i], imageGS[i]);
+    applyNonMaxSuppression(gray, angles);
+    if (input.cmdOptionExists("-nonmax")) return generateGrayscaleImage(gray, outputFileDir);
+    double tMinRatio, tMaxRatio;
+    if (!stMinRatio.empty() && !stMaxRatio.empty()) {
+        tMinRatio = stod(stMinRatio);
+        tMaxRatio = stod(stMaxRatio);
+    } else
+        calculateThresholdValues(grad, tMinRatio, tMaxRatio);
 
-    return true;
+    vector<int> strong = threshold(gray, tMinRatio, tMaxRatio);
+    if (!input.cmdOptionExists("-threshold")) defineEdges(gray, strong, 255);
+    return generateGrayscaleImage(gray, outputFileDir);
 }
 
 int main(int argc, char** argv) {
@@ -444,10 +484,6 @@ int main(int argc, char** argv) {
         cout << helpMessage << endl;
         return 0;
     }
-    string outputFilename = "output.ppm";
-    vector<Color> image;
-
-    if (!detectEdges(input, image, outputFilename)) return -1;
-    generateImage(image, outputFilename);
+    if (!detectEdges(input)) return -1;
     return 0;
 }

@@ -12,6 +12,7 @@
         "initializer_list": "cpp",
         "regex": "cpp",
         "xutility": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "random": "cpp"
     }
 }
