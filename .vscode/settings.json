@@ -14,5 +14,6 @@
         "xutility": "cpp",
         "algorithm": "cpp",
         "random": "cpp"
-    }
+    },
+    "python.formatting.provider": "black"
 }

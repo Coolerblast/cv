@@ -22,7 +22,8 @@ string helpMessage =
     "-h\t\t: displays this help message\n"
     "-blur\t\t: output image after gaussian blur has been applied\n"
     "-sobel\t\t: output image after sobel operator has been applied\n"
-    "-gradient mdl\t: output image of the color gradient using a specified color model [hsl|hsv] | default is hsv\n"
+    "-gradient mdl\t: output image of the color gradient using a specified color model [hsl|hsv] "
+    "| default is hsv\n"
     "-nonmax\t\t: output image after non max suppression has been applied\n"
     "-threshold\t: output image after values have been thresholded\n";
 
@@ -117,8 +118,13 @@ bool loadImage(vector<unsigned char>& r, vector<unsigned char>& g, vector<unsign
     b.resize(WIDTH * HEIGHT);
     int i = 0;
     if (imageType.compare("P3") == 0) {
+        int tr, tb, tg;
         while (i < r.size())
-            if (!(imageFile >> r[i] >> g[i] >> b[i++]))
+            if (imageFile >> tr >> tb >> tg) {
+                r[i] = tr;
+                b[i] = tb;
+                g[i++] = tg;
+            } else
                 cerr << "ERROR: PPM image could not be read correctly.\n";
     } else if (imageType.compare("P6") == 0) {
         unsigned char buffer[3];
