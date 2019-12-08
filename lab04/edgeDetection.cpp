@@ -20,6 +20,7 @@ string helpMessage =
     "-t dbl dbl\t: specify threshold min and max percentages [min max]\n"
     "-c r|g|b\t: specify which color channel(s) to use algorithm on | default is grayscale\n"
     "-h\t\t: displays this help message\n"
+    "-compressed\t: output a P6 PPM instead of a P3 PPM\n"
     "-blur\t\t: output image after gaussian blur has been applied\n"
     "-sobel\t\t: output image after sobel operator has been applied\n"
     "-gradient mdl\t: output image of the color gradient using a specified color model [hsl|hsv] "
@@ -56,46 +57,58 @@ void HSLtoRGB(const double& h, const double& s, const double& l, unsigned char& 
     b = f(4, angle, s, l) * 255;
 }
 
-bool generateGrayscaleImage(vector<unsigned char>& pixMap, string filename) {
+bool generateImage(const vector<vector<unsigned char>*>& pixMap, string filename, bool compression,
+                   string options = "") {
     ofstream imageFile;
-    imageFile.open(filename);
+    imageFile.open(filename, ios::out | ios::binary);
     if (!imageFile) return false;
 
-    imageFile << "P3 " << WIDTH << " " << HEIGHT << " 255" << endl;
+    imageFile << (compression ? "P6 " : "P3 ") << WIDTH << " " << HEIGHT << " 255" << endl;
 
-    unsigned char g;
-    for (int y = 0; y < HEIGHT; y++) {
-        for (int x = 0; x < WIDTH; x++) {
-            g = pixMap[y * WIDTH + x];
-            imageFile << (int)g << " " << (int)g << " " << (int)g << " ";
-        }
-        imageFile << endl;
-    }
-    imageFile.close();
-    return true;
-}
-
-bool generateImage(vector<vector<unsigned char>*>& pixMap, string filename, string options) {
-    ofstream imageFile;
-    imageFile.open(filename);
-    if (!imageFile) return false;
-
-    imageFile << "P3 " << WIDTH << " " << HEIGHT << " 255" << endl;
-
+    bool grayscale = options.empty();
     bool r = options.find("r") != string::npos;
     bool g = options.find("g") != string::npos;
     bool b = options.find("b") != string::npos;
 
-    short int i;
-
-    for (int y = 0; y < HEIGHT; y++) {
-        for (int x = 0; x < WIDTH; x++) {
-            i = 0;
-            imageFile << (r ? (int)(*pixMap[i++])[y * WIDTH + x] : 0) << " "
-                      << (g ? (int)(*pixMap[i++])[y * WIDTH + x] : 0) << " "
-                      << (b ? (int)(*pixMap[i++])[y * WIDTH + x] : 0) << " ";
+    if (grayscale) {
+        if (compression) {
+            int j = 0;
+            while (j < pixMap[0]->size()) {
+                unsigned char buffer[3] = {(*pixMap[0])[j], (*pixMap[0])[j], (*pixMap[0])[j++]};
+                imageFile.write((char*)buffer, 3);
+            }
+        } else {
+            short int gray;
+            for (int y = 0; y < HEIGHT; y++) {
+                for (int x = 0; x < WIDTH; x++) {
+                    gray = (short int)(*pixMap[0])[y * WIDTH + x];
+                    imageFile << gray << " " << gray << " " << gray << " ";
+                }
+                imageFile << endl;
+            }
         }
-        imageFile << endl;
+    } else {
+        short int i;
+        if (compression) {
+            int j = 0;
+            while (j < pixMap[0]->size()) {
+                i = 2;
+                unsigned char buffer[] = {(r ? (*pixMap[i--])[j] : (unsigned char)0),
+                                          (g ? (*pixMap[i--])[j] : (unsigned char)0),
+                                          (b ? (*pixMap[i])[j++] : (unsigned char)0)};
+                imageFile.write((char*)buffer, 3);
+            }
+        } else {
+            for (int y = 0; y < HEIGHT; y++) {
+                for (int x = 0; x < WIDTH; x++) {
+                    i = 0;
+                    imageFile << (r ? (int)(*pixMap[i++])[y * WIDTH + x] : 0) << " "
+                              << (g ? (int)(*pixMap[i++])[y * WIDTH + x] : 0) << " "
+                              << (b ? (int)(*pixMap[i++])[y * WIDTH + x] : 0) << " ";
+                }
+                imageFile << endl;
+            }
+        }
     }
     imageFile.close();
     return true;
@@ -426,6 +439,8 @@ bool detectEdges(const InputParser& input) {
     if (!loadImage(r, g, b, inputFileDir)) return false;
     vector<unsigned char> gray(r.size());
 
+    bool compressed = input.cmdOptionExists("-compressed");
+
     vector<vector<unsigned char>*> channels;
     if (channelOptions.empty()) {
         grayScaleImage(gray, r, g, b);
@@ -445,29 +460,28 @@ bool detectEdges(const InputParser& input) {
 
     gaussianBlur(channels, gSize, gSigma);
     if (input.cmdOptionExists("-blur"))
-        return generateImage(channels, outputFileDir, channelOptions);
+        return generateImage(channels, outputFileDir, compressed, channelOptions);
     vector<double> grad(r.size());
     vector<double> angles(r.size());
     applySobelOperator(channels, gray, grad, angles);
 
     string gradientType;
     if (input.cmdOptionExists("-gradient") && input.getCmdOption("-gradient", {&gradientType})) {
-        vector<vector<unsigned char>*> RGB;
-        RGB.emplace_back(&r);
-        RGB.emplace_back(&g);
-        RGB.emplace_back(&b);
+        vector<vector<unsigned char>*> RGB{&r, &g, &b};
         if (gradientType.compare("hsv") == 0 || gradientType.empty())
             for (int i = 0; i < r.size(); i++)
                 HSVtoRGB(angles[i], 1.0, gray[i] / 255.0, r[i], g[i], b[i]);
         else if (gradientType.compare("hsl") == 0)
             for (int i = 0; i < r.size(); i++)
                 HSLtoRGB(angles[i], 1.0, gray[i] / 255.0, r[i], g[i], b[i]);
-        return generateImage(RGB, outputFileDir, "rgb");
+        return generateImage(RGB, outputFileDir, compressed, "rgb");
     }
-    if (input.cmdOptionExists("-sobel")) return generateGrayscaleImage(gray, outputFileDir);
+    if (input.cmdOptionExists("-sobel"))
+        return generateImage(vector<vector<unsigned char>*>{&gray}, outputFileDir, compressed);
 
     applyNonMaxSuppression(gray, angles);
-    if (input.cmdOptionExists("-nonmax")) return generateGrayscaleImage(gray, outputFileDir);
+    if (input.cmdOptionExists("-nonmax"))
+        return generateImage(vector<vector<unsigned char>*>{&gray}, outputFileDir, compressed);
     double tMinRatio, tMaxRatio;
     if (!stMinRatio.empty() && !stMaxRatio.empty()) {
         tMinRatio = stod(stMinRatio);
@@ -477,7 +491,7 @@ bool detectEdges(const InputParser& input) {
 
     vector<int> strong = threshold(gray, tMinRatio, tMaxRatio);
     if (!input.cmdOptionExists("-threshold")) defineEdges(gray, strong, 255);
-    return generateGrayscaleImage(gray, outputFileDir);
+    return generateImage(vector<vector<unsigned char>*>{&gray}, outputFileDir, compressed);
 }
 
 int main(int argc, char** argv) {
