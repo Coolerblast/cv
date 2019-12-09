@@ -10,7 +10,7 @@
 
 using namespace std;
 
-int WIDTH, HEIGHT;
+int WIDTH, HEIGHT, COLOR_SIZE = 255;
 
 string helpMessage =
     "Syntax:\tprogram.exe [input file] -arguments...\n"
@@ -60,8 +60,7 @@ void HSLtoRGB(const double& h, const double& s, const double& l, unsigned char& 
 bool loadImage(vector<unsigned char>& r, vector<unsigned char>& g, vector<unsigned char>& b,
                const string& fileDir) {
     if (fileDir.substr(fileDir.find_last_of(".") + 1) != "ppm") {
-        cerr << "ERROR: " << fileDir << " is not a supported image type. Supported types: ppm"
-             << endl;
+        cerr << "ERROR: " << fileDir << " is not a supported image type. Supported types: ppm\n";
         return false;
     }
     ifstream imageFile(fileDir, ios::in | ios::binary);
@@ -92,9 +91,8 @@ bool loadImage(vector<unsigned char>& r, vector<unsigned char>& g, vector<unsign
             } else
                 cerr << "ERROR: PPM image could not be read correctly.\n";
     }
-    colorSize += 1;
     // This normalizes all the input PPMs, scaling it up to 8 bit color values
-    if (colorSize != 256)
+    if (++colorSize != 256)
         for (int i = 0; i < r.size(); i++) {
             r[i] = (r[i] + 1) * (256 / colorSize) - 1;
             g[i] = (g[i] + 1) * (256 / colorSize) - 1;
@@ -106,8 +104,7 @@ bool loadImage(vector<unsigned char>& r, vector<unsigned char>& g, vector<unsign
 
 bool generateImage(const vector<vector<unsigned char>*>& pixMap, string filename, bool compression,
                    string options = "") {
-    ofstream imageFile;
-    imageFile.open(filename, ios::out | ios::binary);
+    ofstream imageFile(filename, ios::out | ios::binary);
     if (!imageFile) return false;
 
     imageFile << (compression ? "P6 " : "P3 ") << WIDTH << " " << HEIGHT << " 255\n";
@@ -180,8 +177,7 @@ vector<double> generateGaussianFilter(const int& n, const double& sigma) {
             filter[(y - min) * n + x - min] = exp(-(x * x + y * y) / d) / (M_PI * d);
             sum += filter[(y - min) * n + x - min];
         }
-    for (int i = 0; i < filter.size(); i++) filter[i] /= sum;  // turns the values into percentages
-
+    for (double& d : filter) d /= sum;  // turns the values into percentages
     return filter;
 }
 
@@ -197,8 +193,7 @@ void gaussianBlur(vector<vector<unsigned char>*>& channels, const int& n, const 
     for (int y = 0; y < HEIGHT; y++)
         for (int x = 0; x < WIDTH; x++) {
             sum = 0;
-            for_each(val.begin(), val.end(), [](double& d) { d = 0; });
-
+            for (double& d : val) d = 0;
             for (int fy = min; fy <= mid; fy++)
                 for (int fx = min; fx <= mid; fx++)
                     if (y + fy >= 0 && y + fy < HEIGHT && x + fx >= 0 &&
@@ -246,18 +241,19 @@ vector<double> applySobelOperator(const vector<vector<unsigned char>*>& channels
                     index = (y + fy) * WIDTH + x + fx;
                     sX = sobelKernalX[(fy + 1) * 3 + (fx + 1)];
                     sY = sobelKernalY[(fy + 1) * 3 + (fx + 1)];
-                    for (int i = 0; i < channels.size(); i++) {
+                    for (short int i = 0; i < channels.size(); i++) {
                         gXc[i] += sX * (*channels[i])[index];
                         gYc[i] += sY * (*channels[i])[index];
                     }
                 }
-            for (int i = 0; i < channels.size(); i++) {
+            for (short int i = 0; i < channels.size(); i++) {
                 if (abs(gXc[i]) > abs(gX)) gX = gXc[i];
                 if (abs(gYc[i]) > abs(gY)) gY = gYc[i];
             }
-            grad[y * WIDTH + x] = sqrt(gX * gX + gY * gY);
-            if (grad[y * WIDTH + x] > gMax) gMax = grad[y * WIDTH + x];
-            angles[y * WIDTH + x] = atan2(gY, gX);
+            index = y * WIDTH + x;
+            grad[index] = sqrt(gX * gX + gY * gY);
+            if (grad[index] > gMax) gMax = grad[index];
+            angles[index] = atan2(gY, gX);
         }
     for (int i = 0; i < out.size(); i++) out[i] = (unsigned char)((grad[i] / gMax) * 255);
 }
@@ -265,23 +261,23 @@ vector<double> applySobelOperator(const vector<vector<unsigned char>*>& channels
 void applyNonMaxSuppression(vector<unsigned char>& image, const vector<double>& angles) {
     vector<unsigned char> edges(image.size());
     vector<float> dir(angles.size());
-    for (int i = 0; i < angles.size(); i++) {
+    for (int i = 0; i < angles.size(); i++)
         dir[i] = fmod(angles[i] + M_PI, M_PI) / M_PI * 8;
-    }
 
+    int i, tc, tl, tr, cl, cr, bc, bl, br;
     for (int y = 1; y < HEIGHT - 1; y++)
         for (int x = 1; x < WIDTH - 1; x++) {
             for (int fy = -1; fy <= 1; fy++)
                 for (int fx = -1; fx <= 1; fx++) {
-                    int i = y * WIDTH + x;
-                    int tc = i - WIDTH;  // top-center
-                    int tl = tc - 1;     // top-left
-                    int tr = tc + 1;     // top-right
-                    int cl = i - 1;      // center-left
-                    int cr = i + 1;      // center-right
-                    int bc = i + WIDTH;  // bottom-center
-                    int bl = bc - 1;     // bottom-left
-                    int br = bc + 1;     // bottom-right
+                    i = y * WIDTH + x;
+                    tc = i - WIDTH;  // top-center
+                    tl = tc - 1;     // top-left
+                    tr = tc + 1;     // top-right
+                    cl = i - 1;      // center-left
+                    cr = i + 1;      // center-right
+                    bc = i + WIDTH;  // bottom-center
+                    bl = bc - 1;     // bottom-left
+                    br = bc + 1;     // bottom-right
 
                     if (((dir[i] <= 1 || dir[i] > 7) && image[i] > image[cr] &&
                          image[i] > image[cl]) ||  // 0 deg
@@ -301,35 +297,29 @@ void applyNonMaxSuppression(vector<unsigned char>& image, const vector<double>& 
 
 void calculateThresholdValues(vector<double>& grad, double& tMinRatio, double& tMaxRatio) {
     double sum = 0;
-    for (double d : grad) sum += d;
+    for (const double& d : grad) sum += d;
     double avg = sum / grad.size();
     double var = 0;
-    for (double d : grad) var += (d - avg) * (d - avg);
+    for (const double& d : grad) var += (d - avg) * (d - avg);
     var /= grad.size();
     double sd = sqrt(var);
     tMinRatio = (sd) / 255;
-    // tMaxRatio = (255 - sd * 2) / 255;
     tMaxRatio = (avg + sd / 8) / 255;
-    cout << "Average: " << avg << endl
-         << "Variance: " << var << endl
-         << "Standard Deviation: " << sd << endl
-         << "tMin: " << tMinRatio << endl
-         << "tMax: " << tMaxRatio << endl;
+    cout << "Average: " << avg << "\nVariance: " << var << "\nStandard Deviation: " << sd
+         << "\ntMin: " << tMinRatio << "\ntMax: " << tMaxRatio;
 }
 
 vector<int> threshold(vector<unsigned char>& image, const double& tMinRatio,
                       const double& tMaxRatio) {
-    int maxValue = 255;
-    int med = maxValue / 2;
-
-    int tMax = maxValue * tMaxRatio;
+    int med = COLOR_SIZE / 2;
+    int tMax = COLOR_SIZE * tMaxRatio;
     int tMin = tMax * tMinRatio;
 
     vector<int> strong;
 
     for (int i = 0; i < image.size(); i++)
         if (image[i] > tMax) {
-            image[i] = maxValue;
+            image[i] = COLOR_SIZE;
             strong.emplace_back(i);
         } else if (image[i] > tMin)
             image[i] = med;
