@@ -423,8 +423,8 @@ bool detectEdges(const InputParser& input) {
     string stMinRatio, stMaxRatio, sgSize, sgSigma, stage;
 
     string outputFileDir = "output.ppm";
-    //! change this later to null by default!
-    string inputFileDir = "keyboard.ppm";
+
+    string inputFileDir = "";
 
     string channelOptions;
     if (!(input.getCmdOption("-g", {&sgSize, &sgSigma}) &&
@@ -436,6 +436,10 @@ bool detectEdges(const InputParser& input) {
     vector<unsigned char> r, g, b;
 
     input.getInputFile(inputFileDir);
+    if (inputFileDir.empty()) {
+        cerr << "ERROR: Input file not specified.\n";
+        return false;
+    }
     if (!loadImage(r, g, b, inputFileDir)) return false;
     vector<unsigned char> gray(r.size());
 
