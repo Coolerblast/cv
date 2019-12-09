@@ -57,6 +57,53 @@ void HSLtoRGB(const double& h, const double& s, const double& l, unsigned char& 
     b = f(4, angle, s, l) * 255;
 }
 
+// Usinzg unsigned char because it stores values from 0 to 255 and RGB values can only go to 255
+bool loadImage(vector<unsigned char>& r, vector<unsigned char>& g, vector<unsigned char>& b,
+               const string& fileDir) {
+    if (fileDir.substr(fileDir.find_last_of(".") + 1) != "ppm") {
+        cerr << "ERROR: " << fileDir << " is not a supported image type. Supported types: ppm"
+             << endl;
+        return false;
+    }
+    ifstream imageFile(fileDir, ios::in | ios::binary);
+    string imageType;
+    short int colorSize;
+    imageFile >> imageType >> WIDTH >> HEIGHT >> colorSize;
+    r.resize(WIDTH * HEIGHT);
+    g.resize(WIDTH * HEIGHT);
+    b.resize(WIDTH * HEIGHT);
+    int i = 0;
+    if (imageType.compare("P3") == 0) {
+        int tr, tb, tg;
+        while (i < r.size())
+            if (imageFile >> tr >> tb >> tg) {
+                r[i] = tr;
+                b[i] = tb;
+                g[i++] = tg;
+            } else
+                cerr << "ERROR: PPM image could not be read correctly.\n";
+    } else if (imageType.compare("P6") == 0) {
+        unsigned char buffer[3];
+        while (i < r.size())
+            if (imageFile.read((char*)buffer, 3)) {
+                r[i] = buffer[0];
+                g[i] = buffer[1];
+                b[i++] = buffer[2];
+            } else
+                cerr << "ERROR: PPM image could not be read correctly.\n";
+    }
+    colorSize += 1;
+    // This normalizes all the input PPMs, scaling it up to 8 bit color values
+    if (colorSize != 256)
+        for (int i = 0; i < r.size(); i++) {
+            r[i] = (r[i] + 1) * (256 / colorSize) - 1;
+            g[i] = (g[i] + 1) * (256 / colorSize) - 1;
+            b[i] = (b[i] + 1) * (256 / colorSize) - 1;
+        }
+    imageFile.close();
+    return true;
+}
+
 bool generateImage(const vector<vector<unsigned char>*>& pixMap, string filename, bool compression,
                    string options = "") {
     ofstream imageFile;
@@ -110,53 +157,6 @@ bool generateImage(const vector<vector<unsigned char>*>& pixMap, string filename
             }
         }
     }
-    imageFile.close();
-    return true;
-}
-
-// Usinzg unsigned char because it stores values from 0 to 255 and RGB values can only go to 255
-bool loadImage(vector<unsigned char>& r, vector<unsigned char>& g, vector<unsigned char>& b,
-               const string& fileDir) {
-    if (fileDir.substr(fileDir.find_last_of(".") + 1) != "ppm") {
-        cerr << "ERROR: " << fileDir << " is not a supported image type. Supported types: ppm"
-             << endl;
-        return false;
-    }
-    ifstream imageFile(fileDir, ios::in | ios::binary);
-    string imageType;
-    short int colorSize;
-    imageFile >> imageType >> WIDTH >> HEIGHT >> colorSize;
-    r.resize(WIDTH * HEIGHT);
-    g.resize(WIDTH * HEIGHT);
-    b.resize(WIDTH * HEIGHT);
-    int i = 0;
-    if (imageType.compare("P3") == 0) {
-        int tr, tb, tg;
-        while (i < r.size())
-            if (imageFile >> tr >> tb >> tg) {
-                r[i] = tr;
-                b[i] = tb;
-                g[i++] = tg;
-            } else
-                cerr << "ERROR: PPM image could not be read correctly.\n";
-    } else if (imageType.compare("P6") == 0) {
-        unsigned char buffer[3];
-        while (i < r.size())
-            if (imageFile.read((char*)buffer, 3)) {
-                r[i] = buffer[0];
-                g[i] = buffer[1];
-                b[i++] = buffer[2];
-            } else
-                cerr << "ERROR: PPM image could not be read correctly.\n";
-    }
-    colorSize += 1;
-    // This normalizes all the input PPMs, scaling it up to 8 bit color values
-    if (colorSize != 256)
-        for (int i = 0; i < r.size(); i++) {
-            r[i] = (r[i] + 1) * (256 / colorSize) - 1;
-            g[i] = (g[i] + 1) * (256 / colorSize) - 1;
-            b[i] = (b[i] + 1) * (256 / colorSize) - 1;
-        }
     imageFile.close();
     return true;
 }
@@ -420,29 +420,24 @@ class InputParser {
 };
 
 bool detectEdges(const InputParser& input) {
-    string stMinRatio, stMaxRatio, sgSize, sgSigma, stage;
-
-    string outputFileDir = "output.ppm";
-
     string inputFileDir = "";
     if (!input.getInputFile(inputFileDir)) {
         cerr << "ERROR: Input file not specified.\n";
         return false;
     }
 
-    string channelOptions;
+    string outputFileDir = "output.ppm";
+    string stMinRatio, stMaxRatio, sgSize, sgSigma, stage, channelOptions;
     if (!(input.getCmdOption("-g", {&sgSize, &sgSigma}) &&
           input.getCmdOption("-t", {&stMinRatio, &stMaxRatio}) &&
           input.getCmdOption("-o", {&outputFileDir}) &&
           input.getCmdOption("-c", {&channelOptions})))
         return false;
+    bool compressed = input.cmdOptionExists("-compressed");
 
     vector<unsigned char> r, g, b;
-
     if (!loadImage(r, g, b, inputFileDir)) return false;
     vector<unsigned char> gray(r.size());
-
-    bool compressed = input.cmdOptionExists("-compressed");
 
     vector<vector<unsigned char>*> channels;
     if (channelOptions.empty()) {
@@ -464,8 +459,8 @@ bool detectEdges(const InputParser& input) {
     gaussianBlur(channels, gSize, gSigma);
     if (input.cmdOptionExists("-blur"))
         return generateImage(channels, outputFileDir, compressed, channelOptions);
-    vector<double> grad(r.size());
-    vector<double> angles(r.size());
+
+    vector<double> grad(r.size()), angles(r.size());
     applySobelOperator(channels, gray, grad, angles);
 
     string gradientType;
@@ -485,6 +480,7 @@ bool detectEdges(const InputParser& input) {
     applyNonMaxSuppression(gray, angles);
     if (input.cmdOptionExists("-nonmax"))
         return generateImage(vector<vector<unsigned char>*>{&gray}, outputFileDir, compressed);
+
     double tMinRatio, tMaxRatio;
     if (!stMinRatio.empty() && !stMaxRatio.empty()) {
         tMinRatio = stod(stMinRatio);
