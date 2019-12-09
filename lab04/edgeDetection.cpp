@@ -57,7 +57,6 @@ void HSLtoRGB(const double& h, const double& s, const double& l, unsigned char& 
     b = f(4, angle, s, l) * 255;
 }
 
-// Usinzg unsigned char because it stores values from 0 to 255 and RGB values can only go to 255
 bool loadImage(vector<unsigned char>& r, vector<unsigned char>& g, vector<unsigned char>& b,
                const string& fileDir) {
     if (fileDir.substr(fileDir.find_last_of(".") + 1) != "ppm") {
@@ -83,6 +82,7 @@ bool loadImage(vector<unsigned char>& r, vector<unsigned char>& g, vector<unsign
             } else
                 cerr << "ERROR: PPM image could not be read correctly.\n";
     } else if (imageType.compare("P6") == 0) {
+        imageFile.get();
         unsigned char buffer[3];
         while (i < r.size())
             if (imageFile.read((char*)buffer, 3)) {
@@ -110,7 +110,7 @@ bool generateImage(const vector<vector<unsigned char>*>& pixMap, string filename
     imageFile.open(filename, ios::out | ios::binary);
     if (!imageFile) return false;
 
-    imageFile << (compression ? "P6 " : "P3 ") << WIDTH << " " << HEIGHT << " 255" << endl;
+    imageFile << (compression ? "P6 " : "P3 ") << WIDTH << " " << HEIGHT << " 255\n";
 
     bool grayscale = options.empty();
     bool r = options.find("r") != string::npos;
@@ -131,7 +131,7 @@ bool generateImage(const vector<vector<unsigned char>*>& pixMap, string filename
                     gray = (short int)(*pixMap[0])[y * WIDTH + x];
                     imageFile << gray << " " << gray << " " << gray << " ";
                 }
-                imageFile << endl;
+                imageFile << '\n';
             }
         }
     } else {
@@ -139,10 +139,10 @@ bool generateImage(const vector<vector<unsigned char>*>& pixMap, string filename
         if (compression) {
             int j = 0;
             while (j < pixMap[0]->size()) {
-                i = 2;
-                unsigned char buffer[] = {(r ? (*pixMap[i--])[j] : (unsigned char)0),
-                                          (g ? (*pixMap[i--])[j] : (unsigned char)0),
-                                          (b ? (*pixMap[i])[j++] : (unsigned char)0)};
+                i = 0;  // The rgb values are reversed
+                unsigned char buffer[3] = {(r ? (*pixMap[i++])[j] : (unsigned char)0),
+                                           (g ? (*pixMap[i++])[j] : (unsigned char)0),
+                                           (b ? (*pixMap[i])[j++] : (unsigned char)0)};
                 imageFile.write((char*)buffer, 3);
             }
         } else {
@@ -153,7 +153,7 @@ bool generateImage(const vector<vector<unsigned char>*>& pixMap, string filename
                               << (g ? (int)(*pixMap[i++])[y * WIDTH + x] : 0) << " "
                               << (b ? (int)(*pixMap[i++])[y * WIDTH + x] : 0) << " ";
                 }
-                imageFile << endl;
+                imageFile << '\n';
             }
         }
     }
@@ -164,7 +164,7 @@ bool generateImage(const vector<vector<unsigned char>*>& pixMap, string filename
 void grayScaleImage(vector<unsigned char>& gray, const vector<unsigned char>& r,
                     const vector<unsigned char>& g, const vector<unsigned char>& b) {
     for (int i = 0; i < r.size(); i++) {
-        unsigned char a = (unsigned char)((r[i] + g[i] + b[i]) / 3);
+        unsigned char a = (unsigned char)((r[i] + g[i] + b[i]) / 3);  // averages the 3 rgb values
         gray[i] = a;
     }
 }
@@ -180,12 +180,8 @@ vector<double> generateGaussianFilter(const int& n, const double& sigma) {
             filter[(y - min) * n + x - min] = exp(-(x * x + y * y) / d) / (M_PI * d);
             sum += filter[(y - min) * n + x - min];
         }
-    for (int i = 0; i < filter.size(); i++) filter[i] /= sum;
+    for (int i = 0; i < filter.size(); i++) filter[i] /= sum;  // turns the values into percentages
 
-    // for (int y = min; y <= mid; y++) {
-    //     for (int x = min; x <= mid; x++) cout << filter[(y - min) * n + x - min] << " ";
-    //     cout << endl;
-    // }
     return filter;
 }
 
@@ -205,7 +201,8 @@ void gaussianBlur(vector<vector<unsigned char>*>& channels, const int& n, const 
 
             for (int fy = min; fy <= mid; fy++)
                 for (int fx = min; fx <= mid; fx++)
-                    if (y + fy >= 0 && y + fy < HEIGHT && x + fx >= 0 && fx < WIDTH) {
+                    if (y + fy >= 0 && y + fy < HEIGHT && x + fx >= 0 &&
+                        fx < WIDTH) {  // Checks if index is inbounds
                         filterVal = filter[(fy - min) * n + fx - min];
                         index = (y + fy) * WIDTH + x + fx;
                         sum += filterVal;
