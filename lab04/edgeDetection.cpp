@@ -407,7 +407,7 @@ class InputParser {
     }
 
     bool getInputFile(string& inputFileDir) const {
-        if (!regex_match(tokens[0], re)) {
+        if (!(tokens.empty() || regex_match(tokens[0], re))) {
             inputFileDir = tokens[0];
             return true;
         }
@@ -425,6 +425,10 @@ bool detectEdges(const InputParser& input) {
     string outputFileDir = "output.ppm";
 
     string inputFileDir = "";
+    if (!input.getInputFile(inputFileDir)) {
+        cerr << "ERROR: Input file not specified.\n";
+        return false;
+    }
 
     string channelOptions;
     if (!(input.getCmdOption("-g", {&sgSize, &sgSigma}) &&
@@ -435,11 +439,6 @@ bool detectEdges(const InputParser& input) {
 
     vector<unsigned char> r, g, b;
 
-    input.getInputFile(inputFileDir);
-    if (inputFileDir.empty()) {
-        cerr << "ERROR: Input file not specified.\n";
-        return false;
-    }
     if (!loadImage(r, g, b, inputFileDir)) return false;
     vector<unsigned char> gray(r.size());
 
