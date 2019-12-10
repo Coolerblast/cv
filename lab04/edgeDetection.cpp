@@ -204,7 +204,7 @@ void gaussianBlur(vector<vector<unsigned char>*>& channels, const int& n, const 
                         index = (y + fy) * WIDTH + x + fx;
                         sum += filterVal;
                         for (int i = 0; i < val.size(); i++)
-                            val[i] = filterVal * (*channels[i])[index];
+                            val[i] += filterVal * (*channels[i])[index];
                     }
             for (int i = 0; i < val.size(); i++) {
                 val[i] /= sum;
@@ -212,7 +212,7 @@ void gaussianBlur(vector<vector<unsigned char>*>& channels, const int& n, const 
             }
         }
     for (int i = 0; i < channels[0]->size(); i++)
-        for (int j = 0; i < channels.size(); i++) (*channels[j])[i] = blur[j][i];
+        for (int j = 0; j < channels.size(); j++) (*channels[j])[i] = blur[j][i];
 }
 
 int sobelKernalX[] = {
