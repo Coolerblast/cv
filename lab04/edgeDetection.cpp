@@ -32,7 +32,8 @@ void HSVtoRGB(const double& h, const double& s, const double& v, unsigned char& 
               unsigned char& g, unsigned char& b) {
     double angle = fmod(h * (180 / M_PI) + 360, 360);
 
-    auto f = [](int n, const double& h, const double& s, const double& v) {
+    auto f = [](int n, const double& h, const double& s,
+                const double& v) {  // lambda expression for readablility
         double k = fmod(n + h / 60.0, 6);
         return v - v * s * max(min(k, min(4 - k, 1.0)), 0.0);
     };
@@ -46,7 +47,8 @@ void HSLtoRGB(const double& h, const double& s, const double& l, unsigned char& 
               unsigned char& g, unsigned char& b) {
     double angle = fmod(h * (180 / M_PI) + 360, 360);
 
-    auto f = [](int n, const double& h, const double& s, const double& l) {
+    auto f = [](int n, const double& h, const double& s,
+                const double& l) {  // lambda expression for readablility
         double k = fmod(n + h / 30.0, 12);
         double a = s * min(l, 1 - l);
         return l - a * max(min(k - 3, min(9 - k, 1.0)), -1.0);
@@ -74,24 +76,24 @@ bool loadImage(vector<unsigned char>& r, vector<unsigned char>& g, vector<unsign
     if (imageType.compare("P3") == 0) {
         int tr, tb, tg;
         while (i < r.size())
-            if (imageFile >> tr >> tb >> tg) {
+            if (imageFile >> tr >> tb >> tg) {  // checks if all 3 RGB values could be read
                 r[i] = tr;
                 b[i] = tb;
                 g[i++] = tg;
             } else
                 cerr << "ERROR: PPM image could not be read correctly.\n";
     } else if (imageType.compare("P6") == 0) {
-        imageFile.get();
+        imageFile.get();  // skips the whitespace after the PPM header
         unsigned char buffer[3];
         while (i < r.size())
-            if (imageFile.read((char*)buffer, 3)) {
+            if (imageFile.read((char*)buffer, 3)) {  // checks if all 3 RGB values could be read
                 r[i] = buffer[0];
                 g[i] = buffer[1];
                 b[i++] = buffer[2];
             } else
                 cerr << "ERROR: PPM image could not be read correctly.\n";
     }
-    // This normalizes all the input PPMs, scaling it up to 8 bit color values
+    // this normalizes all the input PPMs, scaling it up to 8 bit color values
     if (++colorSize != 256)
         for (int i = 0; i < r.size(); i++) {
             r[i] = (r[i] + 1) * (256 / colorSize) - 1;
@@ -128,14 +130,14 @@ bool generateImage(const vector<vector<unsigned char>*>& pixMap, string filename
                     gray = (short int)(*pixMap[0])[y * WIDTH + x];
                     imageFile << gray << " " << gray << " " << gray << " ";
                 }
-                imageFile << '\n';
+                imageFile << '\n';  // for formating purposes
             }
         }
     } else {
         short int i;
         unsigned char buffer[3];
         if (compression) {
-            int j = -1;
+            int j = -1;  // starts from -1 because loop iterates j in the conditional statement
             while (++j < pixMap[0]->size()) {
                 i = 0;
                 buffer[0] = r ? (*pixMap[i++])[j] : (unsigned char)0;
@@ -150,9 +152,10 @@ bool generateImage(const vector<vector<unsigned char>*>& pixMap, string filename
                     buffer[0] = r ? (*pixMap[i++])[y * WIDTH + x] : (unsigned char)0;
                     buffer[1] = g ? (*pixMap[i++])[y * WIDTH + x] : (unsigned char)0;
                     buffer[2] = b ? (*pixMap[i])[y * WIDTH + x] : (unsigned char)0;
-                    imageFile << (int)buffer[0] << " " << (int)buffer[1] << " " << (int)buffer[2] << " ";
+                    imageFile << (int)buffer[0] << " " << (int)buffer[1] << " " << (int)buffer[2]
+                              << " ";
                 }
-                imageFile << '\n';
+                imageFile << '\n';  // for formating purposes
             }
         }
     }
@@ -169,7 +172,7 @@ void grayScaleImage(vector<unsigned char>& gray, const vector<unsigned char>& r,
 }
 
 vector<double> generateGaussianFilter(const int& n, const double& sigma) {
-    vector<double> filter(n * n);
+    vector<double> filter(n * n);  // filter is a square
     double d = 2 * sigma * sigma;
     int mid = n / 2;
     int min = mid - n + 1;
@@ -195,11 +198,11 @@ void gaussianBlur(vector<vector<unsigned char>*>& channels, const int& n, const 
     for (int y = 0; y < HEIGHT; y++)
         for (int x = 0; x < WIDTH; x++) {
             sum = 0;
-            for (double& d : val) d = 0;
-            for (int fy = min; fy <= mid; fy++)
+            for (double& d : val) d = 0;         // reset val vector to 0
+            for (int fy = min; fy <= mid; fy++)  // go through the filter
                 for (int fx = min; fx <= mid; fx++)
-                    if (y + fy >= 0 && y + fy < HEIGHT && x + fx >= 0 &&
-                        fx < WIDTH) {  // Checks if index is inbounds
+                    // check if the index is inbounds
+                    if (y + fy >= 0 && y + fy < HEIGHT && x + fx >= 0 && fx < WIDTH) {
                         filterVal = filter[(fy - min) * n + fx - min];
                         index = (y + fy) * WIDTH + x + fx;
                         sum += filterVal;
@@ -207,11 +210,11 @@ void gaussianBlur(vector<vector<unsigned char>*>& channels, const int& n, const 
                             val[i] += filterVal * (*channels[i])[index];
                     }
             for (int i = 0; i < val.size(); i++) {
-                val[i] /= sum;
+                val[i] /= sum;  // scales all the values to 0-255
                 blur[i].emplace_back(val[i]);
             }
         }
-    for (int i = 0; i < channels[0]->size(); i++)
+    for (int i = 0; i < channels[0]->size(); i++)  // copy blur to channel
         for (int j = 0; j < channels.size(); j++) (*channels[j])[i] = blur[j][i];
 }
 
@@ -237,7 +240,8 @@ vector<double> applySobelOperator(const vector<vector<unsigned char>*>& channels
     for (int y = 1; y < HEIGHT - 1; y++)
         for (int x = 1; x < WIDTH - 1; x++) {
             gX = gY = 0;
-            for (int i = 0; i < channels.size(); i++) gXc[i] = gYc[i] = 0;
+            for (int i = 0; i < channels.size(); i++)
+                gXc[i] = gYc[i] = 0;  // reset all the values to 0
             for (int fy = -1; fy <= 1; fy++)
                 for (int fx = -1; fx <= 1; fx++) {
                     index = (y + fy) * WIDTH + x + fx;
@@ -249,6 +253,7 @@ vector<double> applySobelOperator(const vector<vector<unsigned char>*>& channels
                     }
                 }
             for (short int i = 0; i < channels.size(); i++) {
+                // find the value with highest intensity
                 if (abs(gXc[i]) > abs(gX)) gX = gXc[i];
                 if (abs(gYc[i]) > abs(gY)) gY = gYc[i];
             }
@@ -257,41 +262,41 @@ vector<double> applySobelOperator(const vector<vector<unsigned char>*>& channels
             if (grad[index] > gMax) gMax = grad[index];
             angles[index] = atan2(gY, gX);
         }
-    for (int i = 0; i < out.size(); i++) out[i] = (unsigned char)((grad[i] / gMax) * 255);
+    for (int i = 0; i < out.size(); i++)
+        // copy the values to the out vector with a range of 0-255
+        out[i] = (unsigned char)((grad[i] / gMax) * 255);
 }
 
 void applyNonMaxSuppression(vector<unsigned char>& image, const vector<double>& angles) {
     vector<unsigned char> edges(image.size());
     vector<float> dir(angles.size());
+    // convert radian values to a float between 0-8
     for (int i = 0; i < angles.size(); i++) dir[i] = fmod(angles[i] + M_PI, M_PI) / M_PI * 8;
 
     int i, tc, tl, tr, cl, cr, bc, bl, br;
     for (int y = 1; y < HEIGHT - 1; y++)
         for (int x = 1; x < WIDTH - 1; x++) {
-            for (int fy = -1; fy <= 1; fy++)
-                for (int fx = -1; fx <= 1; fx++) {
-                    i = y * WIDTH + x;
-                    tc = i - WIDTH;  // top-center
-                    tl = tc - 1;     // top-left
-                    tr = tc + 1;     // top-right
-                    cl = i - 1;      // center-left
-                    cr = i + 1;      // center-right
-                    bc = i + WIDTH;  // bottom-center
-                    bl = bc - 1;     // bottom-left
-                    br = bc + 1;     // bottom-right
+            i = y * WIDTH + x;
+            tc = i - WIDTH;  // top-center
+            tl = tc - 1;     // top-left
+            tr = tc + 1;     // top-right
+            cl = i - 1;      // center-left
+            cr = i + 1;      // center-right
+            bc = i + WIDTH;  // bottom-center
+            bl = bc - 1;     // bottom-left
+            br = bc + 1;     // bottom-right
 
-                    if (((dir[i] <= 1 || dir[i] > 7) && image[i] > image[cr] &&
-                         image[i] > image[cl]) ||  // 0 deg
-                        ((dir[i] <= 3 && dir[i] > 1) && image[i] > image[tr] &&
-                         image[i] > image[bl]) ||  // 45 deg
-                        ((dir[i] <= 5 && dir[i] > 3) && image[i] > image[tc] &&
-                         image[i] > image[bc]) ||  // 90 deg
-                        ((dir[i] <= 7 && dir[i] > 5) && image[i] > image[tl] &&
-                         image[i] > image[br]))  // 135 deg
-                        edges[i] = image[i];
-                    else
-                        edges[i] = 0;
-                }
+            if (((dir[i] <= 1 || dir[i] > 7) && image[i] > image[cr] &&
+                 image[i] > image[cl]) ||  // 0 deg
+                ((dir[i] <= 3 && dir[i] > 1) && image[i] > image[tr] &&
+                 image[i] > image[bl]) ||  // 45 deg
+                ((dir[i] <= 5 && dir[i] > 3) && image[i] > image[tc] &&
+                 image[i] > image[bc]) ||  // 90 deg
+                ((dir[i] <= 7 && dir[i] > 5) && image[i] > image[tl] &&
+                 image[i] > image[br]))  // 135 deg
+                edges[i] = image[i];
+            else
+                edges[i] = 0;
         }
     image = edges;
 }
@@ -319,12 +324,15 @@ vector<int> threshold(vector<unsigned char>& image, const double& tMinRatio,
     vector<int> strong;
 
     for (int i = 0; i < image.size(); i++)
+        // if value it larger than max threshold, its an edge
         if (image[i] > tMax) {
             image[i] = COLOR_SIZE;
             strong.emplace_back(i);
+            // if it's inbetween it could be an edge
         } else if (image[i] > tMin)
             image[i] = med;
         else
+            // if value it larger than min threshold, its not an edge
             image[i] = 0;
     return strong;
 }
@@ -350,9 +358,11 @@ void defineEdges(vector<unsigned char>& image, vector<int> strong, const int& ma
                     i + WIDTH,      // bottom-center
                     i + WIDTH + 1   // bottom-right
                 };
+                // look through neighbors and see if its touching any pixels that could be an edge
                 for (int n : neighbors) {
                     if (image[n] == 127 && edges[n] == 0) {
                         edges[n] = max;
+                        // recurse with added edge
                         nedges.emplace_back(n);
                     }
                 }
