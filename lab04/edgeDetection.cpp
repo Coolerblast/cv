@@ -133,22 +133,24 @@ bool generateImage(const vector<vector<unsigned char>*>& pixMap, string filename
         }
     } else {
         short int i;
+        unsigned char buffer[3];
         if (compression) {
-            int j = 0;
-            while (j < pixMap[0]->size()) {
-                i = 0;  // The rgb values are reversed
-                unsigned char buffer[3] = {(r ? (*pixMap[i++])[j] : (unsigned char)0),
-                                           (g ? (*pixMap[i++])[j] : (unsigned char)0),
-                                           (b ? (*pixMap[i])[j++] : (unsigned char)0)};
+            int j = -1;
+            while (++j < pixMap[0]->size()) {
+                i = 0;
+                buffer[0] = r ? (*pixMap[i++])[j] : (unsigned char)0;
+                buffer[1] = g ? (*pixMap[i++])[j] : (unsigned char)0;
+                buffer[2] = b ? (*pixMap[i])[j] : (unsigned char)0;
                 imageFile.write((char*)buffer, 3);
             }
         } else {
             for (int y = 0; y < HEIGHT; y++) {
                 for (int x = 0; x < WIDTH; x++) {
                     i = 0;
-                    imageFile << (r ? (int)(*pixMap[i++])[y * WIDTH + x] : 0) << " "
-                              << (g ? (int)(*pixMap[i++])[y * WIDTH + x] : 0) << " "
-                              << (b ? (int)(*pixMap[i++])[y * WIDTH + x] : 0) << " ";
+                    buffer[0] = r ? (*pixMap[i++])[y * WIDTH + x] : (unsigned char)0;
+                    buffer[1] = g ? (*pixMap[i++])[y * WIDTH + x] : (unsigned char)0;
+                    buffer[2] = b ? (*pixMap[i])[y * WIDTH + x] : (unsigned char)0;
+                    imageFile << (int)buffer[0] << " " << (int)buffer[1] << " " << (int)buffer[2] << " ";
                 }
                 imageFile << '\n';
             }
@@ -261,8 +263,7 @@ vector<double> applySobelOperator(const vector<vector<unsigned char>*>& channels
 void applyNonMaxSuppression(vector<unsigned char>& image, const vector<double>& angles) {
     vector<unsigned char> edges(image.size());
     vector<float> dir(angles.size());
-    for (int i = 0; i < angles.size(); i++)
-        dir[i] = fmod(angles[i] + M_PI, M_PI) / M_PI * 8;
+    for (int i = 0; i < angles.size(); i++) dir[i] = fmod(angles[i] + M_PI, M_PI) / M_PI * 8;
 
     int i, tc, tl, tr, cl, cr, bc, bl, br;
     for (int y = 1; y < HEIGHT - 1; y++)
