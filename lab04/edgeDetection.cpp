@@ -21,6 +21,7 @@ string helpMessage =
     "-c r|g|b\t: specify which color channel(s) to use algorithm on | default is grayscale\n"
     "-h\t\t: displays this help message\n"
     "-compressed\t: output a P6 PPM instead of a P3 PPM\n"
+    "-grayscale\t: output a grayscale version of the image\n"
     "-blur\t\t: output image after gaussian blur has been applied\n"
     "-sobel\t\t: output image after sobel operator has been applied\n"
     "-gradient mdl\t: output image of the color gradient using a specified color model [hsl|hsv] "
@@ -438,9 +439,11 @@ bool detectEdges(const InputParser& input) {
     vector<unsigned char> gray(r.size());
 
     vector<vector<unsigned char>*> channels;
-    if (channelOptions.empty()) {
+    if (channelOptions.empty() || input.cmdOptionExists("-grayscale")) {
         grayScaleImage(gray, r, g, b);
         channels.emplace_back(&gray);
+        if (input.cmdOptionExists("-grayscale"))
+            return generateImage(channels, outputFileDir, compressed, channelOptions);
     } else {
         if (channelOptions.find("r") != string::npos) channels.emplace_back(&r);
         if (channelOptions.find("g") != string::npos) channels.emplace_back(&g);
