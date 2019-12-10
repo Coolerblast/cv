@@ -487,6 +487,5 @@ int main(int argc, char** argv) {
         cout << helpMessage << endl;
         return 0;
     }
-    if (!detectEdges(input)) return -1;
-    return 0;
+    return detectEdges(input);
 }
