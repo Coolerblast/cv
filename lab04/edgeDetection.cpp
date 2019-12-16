@@ -16,7 +16,7 @@ string helpMessage =
     "Syntax:\tprogram.exe [input file] -arguments...\n"
     "Options and arguments:\n"
     "-o dir\t\t: specify file output location\n"
-    "-g int dbl\t: specify gradient size and sigma value [gradient sigma]\n"
+    "-b int dbl\t: specify gaussian blur filter size and sigma value [size sigma]\n"
     "-t dbl dbl\t: specify threshold min and max percentages [min max]\n"
     "-c r|g|b\t: specify which color channel(s) to use algorithm on | default is grayscale\n"
     "-h\t\t: displays this help message\n"
@@ -427,7 +427,7 @@ bool detectEdges(const InputParser& input) {
 
     string outputFileDir = "output.ppm";
     string stMinRatio, stMaxRatio, sgSize, sgSigma, stage, channelOptions;
-    if (!(input.getCmdOption("-g", {&sgSize, &sgSigma}) &&
+    if (!(input.getCmdOption("-b", {&sgSize, &sgSigma}) &&
           input.getCmdOption("-t", {&stMinRatio, &stMaxRatio}) &&
           input.getCmdOption("-o", {&outputFileDir}) &&
           input.getCmdOption("-c", {&channelOptions})))
