@@ -13,7 +13,10 @@
         "regex": "cpp",
         "xutility": "cpp",
         "algorithm": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "xmemory": "cpp",
+        "utility": "cpp",
+        "unordered_map": "cpp"
     },
     "python.formatting.provider": "black"
 }
