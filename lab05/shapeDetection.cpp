@@ -421,7 +421,7 @@ void houghTransform(vector<unsigned char>& r, vector<unsigned char>& g, vector<u
     int tWidth = 360;
     int rMin = min(WIDTH, HEIGHT) / 40;
     int rMax = min(WIDTH, HEIGHT) / 16;
-    cout << rMax << endl;
+    // cout << rMin << " " << rMax << endl;
     int rDepth = rMax - rMin;
 
     vector<unsigned char> out(r.size(), 0);
@@ -465,21 +465,21 @@ void houghTransform(vector<unsigned char>& r, vector<unsigned char>& g, vector<u
     double lower = avg - sd * 2;
     double upper = avg + sd * 2;
 
-    cout << "sum:\t\t" << sum << "\nnum:\t\t" << numCircles << "\naverage:\t" << avg << "\nsd:\t\t"
-         << sd << "\nlower:\t\t" << lower << "\nupper:\t\t" << upper << endl;
+    // cout << "sum:\t\t" << sum << "\nnum:\t\t" << numCircles << "\naverage:\t" << avg << "\nsd:\t\t"
+    //      << sd << "\nlower:\t\t" << lower << "\nupper:\t\t" << upper << endl;
 
     while (circleCollector.begin()->first < lower) {
         circleCollector.erase(circleCollector.begin());
     }
 
-    for (const pair<int, vector<pair<int, int>>>& cc : circleCollector) {
-        cout << cc.first << ":";
-        if (cc.first < lower || cc.first > upper) continue;
-        for (const pair<int, int> p : cc.second) {
-            cout << " <" << p.first << ", " << p.second << ">";
-        }
-        cout << endl;
-    }
+    // for (const pair<int, vector<pair<int, int>>>& cc : circleCollector) {
+    //     cout << cc.first << ":";
+    //     if (cc.first < lower || cc.first > upper) continue;
+    //     for (const pair<int, int> p : cc.second) {
+    //         cout << " <" << p.first << ", " << p.second << ">";
+    //     }
+    //     cout << endl;
+    // }
 
     // diameter of the coins in inches, smallest to largest
     static float sizes[] = {.705f, .750f, .835f, .955f, 1.105f, 1.205f};
@@ -495,13 +495,13 @@ void houghTransform(vector<unsigned char>& r, vector<unsigned char>& g, vector<u
     // if red is the most prominent color of the starting coin
     if ((float) r[startingCenterIndex] / g[startingCenterIndex] > RED_RATIO && (float) r[startingCenterIndex] / b[startingCenterIndex] > RED_RATIO )
         startingCoin++;
-    cout << (startingCoin ? "PENNY" : "DIME") << endl;
+    // cout << (startingCoin ? "PENNY" : "DIME") << endl;
     int coin = startingCoin;  // change later to starting coin
     vector<int> sizeValue;
 
     sizeValue.push_back(baseSize * sizes[coin + 1] / sizes[coin++]);
     while (coin < 5) {
-        cout << coin << " " << sizeValue.back() << endl;
+        //cout << coin << " " << sizeValue.back() << endl;
         sizeValue.push_back(sizeValue.back() * sizes[coin + 1] / sizes[coin]);
         coin++;
     }
@@ -514,7 +514,7 @@ void houghTransform(vector<unsigned char>& r, vector<unsigned char>& g, vector<u
     unsigned char colors[6][3] = {
         {255, 255, 255}, {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 255, 0}, {0, 0, 0}};
     for (auto const& cc : circleCollector) {
-        cout << index << " " << sizeValue[index] << " " << values[index] << endl;
+        //cout << index << " " << sizeValue[index] << " " << values[index] << endl;
         while (cc.first > sizeValue[index] && index < 5) index++;
         if (index <= indexBeforeNickelCutoff) {
             for (auto const& p : cc.second) {
@@ -546,7 +546,7 @@ void houghTransform(vector<unsigned char>& r, vector<unsigned char>& g, vector<u
     cout << "QUARTERS:\t" << count[3] << endl;
     cout << "HALF DOLLARS:\t" << count[5] << endl;
     cout << "DOLLARS:\t" << count[4] << endl;
-    cout << "Total: " << total << endl;
+    cout << "\nTOTAL\t\t$ " << total << endl;
 }
 
 class InputParser {
@@ -636,8 +636,8 @@ bool detectCoins(const InputParser& input) {
     vector<Edge> edges;
 
     findAllEdges(gray, edges);
-    cout << gray.size() << endl;
-    cout << edges.size() << endl;
+    // cout << gray.size() << endl;
+    // cout << edges.size() << endl;
     houghTransform(r, g, b, edges);
 
     return generateImage(vector<vector<unsigned char>*>{&r, &g, &b}, outputFileDir, compressed,
