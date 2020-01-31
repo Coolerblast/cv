@@ -1,3 +1,6 @@
+// Name: Alex Lin
+// Date: 1/24/2020
+// Period: 4
 #define _USE_MATH_DEFINES
 
 #include <cmath>
@@ -429,11 +432,9 @@ void houghTransform(vector<unsigned char>& r, vector<unsigned char>& g, vector<u
 
     for (int rad = rMax; rad >= rMin; --rad) {
         vector<int> accum(WIDTH * HEIGHT, 0);
-        // cout << rad << '\n';
         for (Edge edge : edges) {
             accumCircle(accum, edge.x, edge.y, rad);
         }
-        // unsigned int i, t, l, r, b;
         unsigned int threshold = 10.0 / 3.0 * rad;
         for (int y = 1; y < HEIGHT - 1; y++)
             for (int x = 1; x < WIDTH - 1; x++) {
@@ -468,18 +469,10 @@ void houghTransform(vector<unsigned char>& r, vector<unsigned char>& g, vector<u
     // cout << "sum:\t\t" << sum << "\nnum:\t\t" << numCircles << "\naverage:\t" << avg << "\nsd:\t\t"
     //      << sd << "\nlower:\t\t" << lower << "\nupper:\t\t" << upper << endl;
 
+    // prune circles that are too small
     while (circleCollector.begin()->first < lower) {
         circleCollector.erase(circleCollector.begin());
     }
-
-    // for (const pair<int, vector<pair<int, int>>>& cc : circleCollector) {
-    //     cout << cc.first << ":";
-    //     if (cc.first < lower || cc.first > upper) continue;
-    //     for (const pair<int, int> p : cc.second) {
-    //         cout << " <" << p.first << ", " << p.second << ">";
-    //     }
-    //     cout << endl;
-    // }
 
     // diameter of the coins in inches, smallest to largest
     static float sizes[] = {.705f, .750f, .835f, .955f, 1.105f, 1.205f};
@@ -496,7 +489,7 @@ void houghTransform(vector<unsigned char>& r, vector<unsigned char>& g, vector<u
     if ((float) r[startingCenterIndex] / g[startingCenterIndex] > RED_RATIO && (float) r[startingCenterIndex] / b[startingCenterIndex] > RED_RATIO )
         startingCoin++;
     // cout << (startingCoin ? "PENNY" : "DIME") << endl;
-    int coin = startingCoin;  // change later to starting coin
+    int coin = startingCoin;
     vector<int> sizeValue;
 
     sizeValue.push_back(baseSize * sizes[coin + 1] / sizes[coin++]);

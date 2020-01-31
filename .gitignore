@@ -10,5 +10,7 @@
 forrest
 jazon
 harsha
+ext
+*.zip
 *.py
 *.txt
