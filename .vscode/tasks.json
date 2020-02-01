@@ -17,7 +17,7 @@
         {
             "type": "shell",
             "label": "build active file",
-            "command": "C:\\MinGW\\bin\\g++.exe",
+            "command": "g++",
             "args": [
                 "-g",
                 "${file}",
@@ -25,7 +25,7 @@
                 "${fileDirname}\\${fileBasenameNoExtension}.exe"
             ],
             "options": {
-                "cwd": "C:\\MinGW\\bin"
+                "cwd": "${workspaceFolder}"
             },
             "group": "build",
             "problemMatcher": [
@@ -34,8 +34,21 @@
         },
         {
             "type": "shell",
+            "label": "build and run active file with opencv",
+            "options": {
+                "cwd": "${fileDirname}"
+            },
+            "command": "${fileDirname}\\${fileBasenameNoExtension}.exe",
+            "dependsOn": [
+                "build active file with opencv"
+            ],
+            "problemMatcher": [],
+            "group": "build"
+        },
+        {
+            "type": "shell",
             "label": "build active file with opencv",
-            "command": "C:\\MinGW\\bin\\g++.exe",
+            "command": "g++",
             "args": [
                 "-g",
                 "${file}",
@@ -43,10 +56,10 @@
                 "${fileDirname}\\${fileBasenameNoExtension}.exe",
                 "-I", "ext\\include",
                 "-L", "ext\\lib",
-                "-lopencv_world420"
+                "-lopencv_world420",
             ],
             "options": {
-                "cwd": "C:\\MinGW\\bin"
+                "cwd": "${workspaceFolder}"
             },
             "group": "build",
             "problemMatcher": [
