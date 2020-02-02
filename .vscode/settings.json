@@ -16,7 +16,8 @@
         "random": "cpp",
         "xmemory": "cpp",
         "utility": "cpp",
-        "unordered_map": "cpp"
+        "unordered_map": "cpp",
+        "queue": "cpp"
     },
     "python.formatting.provider": "black"
 }
