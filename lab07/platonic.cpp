@@ -1,3 +1,6 @@
+// Name: Alex Lin
+// Date: 3/15/2020
+
 #define _USE_MATH_DEFINES
 #include <fstream>
 #include <opencv2/opencv.hpp>
@@ -98,7 +101,7 @@ int main(int argc, char** argv) {
 
     cout << "Generating video..." << endl;
     for (float angle = 0; angle < 30; angle+=0.1) {
-        cv::Mat frame(size, CV_8UC3);
+        cv::Mat frame = cv::Mat::zeros(size, CV_8UC3);
         vector<cv::Point2i> projected(points.size());
         for (int i = 0; i < points.size(); i++) {
             cv::Point3f vertCam, projVert;
